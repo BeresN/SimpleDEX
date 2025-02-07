@@ -1,14 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
-contract Counter {
-    uint256 public number;
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-    function setNumber(uint256 newNumber) public {
-        number = newNumber;
-    }
-
-    function increment() public {
-        number++;
+contract Token is ERC20 {
+    constructor() ERC20("BersensToken", "BTKN") {
+        _mint(msg.sender, 100000 * 10 ** decimals());
     }
 }
