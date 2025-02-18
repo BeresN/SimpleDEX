@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.26;
+pragma solidity 0.8.28;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
+
 
 contract LiquidityPool is IERC20, ERC20 {
     address public tokenA;
@@ -50,12 +52,9 @@ contract LiquidityPool is IERC20, ERC20 {
         IERC20(tokenB).transferFrom(msg.sender, address(this), amountB);
 
         if (totalLiquidity == 0) {
-            lpMinted = sqrt(amountA * amountB);
+            lpMinted = Math.sqrt(amountA * amountB);
         }
-        lpMinted = min(
-            (amountA * totalLiquidity) / reserveA,
-            (amountB * totalLiquidity) / reserveB
-        );
+        lpMinted = Math.min(amountA, amountB);
 
         require(lpMinted > 0, "LP amount must be > 0");
 
@@ -87,16 +86,6 @@ contract LiquidityPool is IERC20, ERC20 {
         emit LiquidityRemoved(msg.sender, amountA, amountB, lpAmount);
     }
 
-    //Heron (Newtona-Raphsona) to count LP tokens for users
-    function sqrt(uint256 x) private pure returns (uint256) {
-        uint256 z = (x + 1) / 2;
-        uint256 y = x;
-        while (z < y) {
-            x = z;
-            z = (x / z + z) / 2;
-        }
-        return y;
-    }
     //function to find minimum between a and b
     function min(uint256 a, uint256 b) private pure returns (uint256) {
         return a < b ? a : b;
