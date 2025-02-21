@@ -5,28 +5,22 @@ import "./LiquidityPool.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 
 
-contract Exchange is ReentrancyGuard{
+contract Exchange is Ownable, ReentrancyGuard{
     using SafeERC20 for IERC20;
     LiquidityPool public pool;
-    address public liquidityPoolAddress;
     address public tokenA;
     address public tokenB;
-    address public exchangeAddress;
 
+    event Swap(address indexed user, uint256 amountIn, uint256 amountOut, bool isTokenToEth);
 
-    constructor(address _liquidityPool) {
+    constructor(address _liquidityPool, address initialOwner) Ownable(initialOwner) {
         pool = LiquidityPool(_liquidityPool);
         (tokenA, tokenB) = pool.getTokenAddresses();
-        exchangeAddress = msg.sender;
         require(tokenA != address(0) && tokenB != address(0), "Invalid token addresses");
-    }
-
-    function setExchangeAddress(address _exchangeAddress) external {
-        require(exchangeAddress == address(0), "Exchange address already set");
-        exchangeAddress = _exchangeAddress;
     }
 
     // getOutputAmountFromSwap calculates the amount of output
@@ -41,7 +35,7 @@ contract Exchange is ReentrancyGuard{
             "Reserves must be greater than 0"
         );
 
-        uint256 inputAmountWithFee = inputAmount * 99;
+        uint256 inputAmountWithFee = inputAmount * 99 / 100;
 
         uint256 numerator = inputAmountWithFee * outputReserve;
         uint256 denominator = (inputReserve * 100) + inputAmountWithFee;
@@ -50,18 +44,45 @@ contract Exchange is ReentrancyGuard{
     }
 
     function tokenToEthSwap(
-        uint256 tokensAmount
+        uint256 tokenAmount
     )
-        external returns(uint256 ethToReceive) {
-        (uint256 reserveA, uint256 reserveB) = pool.getReserves();
+        public payable nonReentrant returns(uint256 ethToReceive) {
+        (uint256 reserveA, uint256 ethReserve) = pool.getReserves();
 
-        ethToReceive = (tokensAmount * reserveB) / (reserveA + tokensAmount);
+        ethToReceive = getOutputAmountFromSwap(
+            tokenAmount,
+            reserveA,
+            ethReserve
+        );
+        
+        IERC20(pool.tokenB()).safeTransfer(msg.sender, ethToReceive);
+        pool.updateReserves(ethReserve - ethToReceive, reserveA + msg.value);
+        emit Swap(msg.sender, tokenAmount, ethToReceive, true);
+        return ethToReceive;
 
-        IERC20(pool.tokenA()).safeTransferFrom(msg.sender, address(pool), tokensAmount);
-        IERC20(pool.tokenB()).safeTransferFrom(msg.sender, address(pool), ethToReceive);
+        
+    }
 
+    function ethToTokens()
+        public payable nonReentrant returns(uint256 tokenToReceive) {
+        (uint256 reserveA, uint256 ethReserve) = pool.getReserves();
 
+        require(msg.value > 0, "Invalid amount of ETH");
+        tokenToReceive = getOutputAmountFromSwap(
+            msg.value,
+            ethReserve,
+            reserveA
+        );
+        
+        IERC20(pool.tokenA()).safeTransfer(msg.sender, tokenToReceive);
+        pool.updateReserves(reserveA - tokenToReceive, ethReserve + msg.value);
+        emit Swap(msg.sender, msg.value ,tokenToReceive, false);
+        return tokenToReceive;
+    }
 
-        }
+    function transferTokens(address token, address to, uint256 amount) external onlyOwner{
+        require(token == pool.tokenA() || token == pool.tokenB(), "Invalid token");
+        IERC20(token).safeTransfer(to, amount);
+    }
     
 }

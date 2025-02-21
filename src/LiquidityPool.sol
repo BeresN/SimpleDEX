@@ -12,9 +12,10 @@ contract LiquidityPool is ERC20{
     address public immutable tokenA;
     address public immutable tokenB;
     address public tokenAddress;
+    address public exchangeAddress;
 
     uint256 private reserveA;
-    uint256 private reserveB;
+    uint256 private ethReserve;
 
     event LiquidityAdded(
         address indexed user,
@@ -29,22 +30,22 @@ contract LiquidityPool is ERC20{
         uint256 lpBurned
     );
 
-    mapping(address => uint256) public lpTokens;
 
-    constructor(address _tokenA, address _tokenB) 
+    constructor(address _tokenA, address _tokenB, address _exchangeAddress) 
     ERC20("LiquidityPoolToken", "LPT") {
+        exchangeAddress = _exchangeAddress;
         tokenA = _tokenA;
         tokenB = _tokenB;
     }
 
     function getReserves() public view returns (uint256, uint256) {
-        return (reserveA, reserveB);
+        return (reserveA, ethReserve);
     }
 
-    function updateReserves(uint256 newReserveA, uint256 newReserveB) external {
+    function updateReserves(uint256 newReserveA, uint256 newEthReserve) external {
         require(msg.sender == exchangeAddress, "Unauthorized");
         reserveA = newReserveA;
-        reserveB = newReserveB;
+        ethReserve = newEthReserve;
     }
 
 
@@ -57,23 +58,27 @@ contract LiquidityPool is ERC20{
         uint256 amountA,
         uint256 amountB
     ) external returns (uint256 lpMinted) {
+        uint256 totalReserveBalance = getReserves();
         require(amountA > 0 && amountB > 0, "Must be more than 0");
 
         IERC20(tokenA).safeTransferFrom(msg.sender, address(this), amountA);
         IERC20(tokenB).safeTransferFrom(msg.sender, address(this), amountB);
 
-        if (totalLiquidity == 0) {
+        if (totalReserveBalance == 0) {
             lpMinted = Math.sqrt(amountA * amountB);
+        } else {
+            lpMinted = Math.min(
+                (amountA * totalReserveBalance) / reserveA,
+                (amountB * totalReserveBalance) / ethReserve
+            );
         }
-        lpMinted = Math.min(amountA, amountB);
-
         require(lpMinted > 0, "LP amount must be > 0");
 
-        lpTokens[msg.sender] += lpMinted;
-        totalLiquidity += lpMinted;
+        _mint(msg.sender, lpMinted);
+
 
         reserveA += amountA;
-        reserveB += amountB;
+        ethReserve += amountB;
 
         emit LiquidityAdded(msg.sender, amountA, amountB, lpMinted);
     }
@@ -84,15 +89,17 @@ contract LiquidityPool is ERC20{
         require(lpAmount > 0, "Amount must be greater than zero");
 
         amountA = (lpAmount * reserveA) / totalLiquidity;
-        amountB = (lpAmount * reserveB) / totalLiquidity;
+        amountB = (lpAmount * ethReserve) / totalLiquidity;
 
         require(amountA > 0 && amountB > 0, "Insufficient liquidity");
 
-        _burn(msg.sender, lpAmount);
+        require(lpTokens[msg.sender] >= lpAmount, "Not enough LP tokens");
+        lpTokens[msg.sender] -= lpAmount;
         totalLiquidity -= lpAmount;
+        _burn(msg.sender, lpAmount);
 
         reserveA -= amountA;
-        reserveB -= amountB;
+        ethReserve -= amountB;
 
         IERC20(tokenA).safeTransfer(msg.sender, amountA);
         IERC20(tokenB).safeTransfer(msg.sender, amountB);
