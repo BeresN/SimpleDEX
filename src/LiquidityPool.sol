@@ -8,14 +8,13 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract LiquidityPool is ERC20{
     using SafeERC20 for IERC20;
-    uint256 public totalLiquidity;
+    uint256 private totalSupply;
     address public immutable tokenA;
     address public immutable tokenB;
-    address public tokenAddress;
-    address public exchangeAddress;
+    address public immutable exchangeAddress;
 
     uint256 private reserveA;
-    uint256 private ethReserve;
+    uint256 private reserveB;
 
     event LiquidityAdded(
         address indexed user,
@@ -39,72 +38,78 @@ contract LiquidityPool is ERC20{
     }
 
     function getReserves() public view returns (uint256, uint256) {
-        return (reserveA, ethReserve);
+        return (reserveA, reserveB);
     }
 
-    function updateReserves(uint256 newReserveA, uint256 newEthReserve) external {
+    function updateReserves(uint256 newReserveA, uint256 newReserveB) external {
         require(msg.sender == exchangeAddress, "Unauthorized");
         reserveA = newReserveA;
-        ethReserve = newEthReserve;
+        reserveB = newReserveB;
     }
-
 
     function getTokenAddresses() public view returns (address, address) {
         return (tokenA, tokenB);
     }
     
+    function withdrawEth(uint256 amount) external {
+        require(msg.sender == exchangeAddress, "Only exchange");
+        payable(msg.sender).transfer(amount);
+    }
 
     function addLiquidity(
         uint256 amountA,
         uint256 amountB
     ) external returns (uint256 lpMinted) {
-        uint256 totalReserveBalance = getReserves();
         require(amountA > 0 && amountB > 0, "Must be more than 0");
-
+        totalSupply = reserveA + reserveB;
         IERC20(tokenA).safeTransferFrom(msg.sender, address(this), amountA);
         IERC20(tokenB).safeTransferFrom(msg.sender, address(this), amountB);
 
-        if (totalReserveBalance == 0) {
+        if (totalSupply == 0) {
             lpMinted = Math.sqrt(amountA * amountB);
         } else {
             lpMinted = Math.min(
-                (amountA * totalReserveBalance) / reserveA,
-                (amountB * totalReserveBalance) / ethReserve
+                (amountA * totalSupply) / reserveA,
+                (amountB * totalSupply) / reserveB
             );
         }
         require(lpMinted > 0, "LP amount must be > 0");
-
+        
         _mint(msg.sender, lpMinted);
-
-
         reserveA += amountA;
-        ethReserve += amountB;
+        reserveB += amountB;
+        
 
         emit LiquidityAdded(msg.sender, amountA, amountB, lpMinted);
     }
 
     function removeLiquidity(
         uint256 lpAmount
-    ) public returns (uint256 amountA, uint256 amountB) {
+    ) external returns (uint256 amountA, uint256 amountB) {
+        totalSupply = reserveA + reserveB;
         require(lpAmount > 0, "Amount must be greater than zero");
 
-        amountA = (lpAmount * reserveA) / totalLiquidity;
-        amountB = (lpAmount * ethReserve) / totalLiquidity;
+        amountA = (lpAmount / totalSupply) * reserveA;
+        amountB = (lpAmount / totalSupply) * reserveB;
 
         require(amountA > 0 && amountB > 0, "Insufficient liquidity");
 
-        require(lpTokens[msg.sender] >= lpAmount, "Not enough LP tokens");
-        lpTokens[msg.sender] -= lpAmount;
-        totalLiquidity -= lpAmount;
         _burn(msg.sender, lpAmount);
 
         reserveA -= amountA;
-        ethReserve -= amountB;
+        reserveB -= amountB;
 
         IERC20(tokenA).safeTransfer(msg.sender, amountA);
         IERC20(tokenB).safeTransfer(msg.sender, amountB);
 
         emit LiquidityRemoved(msg.sender, amountA, amountB, lpAmount);
+    }
+
+    function swapTokenToEth(address to, uint256 tokenAmount, uint256 ethAmount) external {
+        require(msg.sender == exchangeAddress, "Only exchange");
+        reserveA += tokenAmount;
+        reserveB -= ethAmount;
+        payable(to).transfer(ethAmount);
     }
 
 } 
