@@ -51,17 +51,13 @@ contract LiquidityPool is ERC20 {
         return (tokenA, tokenB);
     }
 
-    function withdrawEth(uint256 amount) external {
-        require(msg.sender == exchangeAddress, "Only exchange");
-        payable(msg.sender).transfer(amount);
-    }
 
     function addLiquidity(
         uint256 amountA,
         uint256 amountB
     ) external returns (uint256 lpMinted) {
         require(amountA > 0 && amountB > 0, "Must be more than 0");
-        uint256 __totalSupply = totalSupply();
+        uint256 _totalSupply = totalSupply();
         IERC20(tokenA).safeTransferFrom(msg.sender, address(this), amountA);
         IERC20(tokenB).safeTransferFrom(msg.sender, address(this), amountB);
 
@@ -85,7 +81,7 @@ contract LiquidityPool is ERC20 {
     function removeLiquidity(
         uint256 lpAmount
     ) external returns (uint256 amountA, uint256 amountB) {
-        uint256 __totalSupply = totalSupply();
+        uint256 _totalSupply = totalSupply();
         require(lpAmount > 0, "Amount must be greater than zero");
 
         amountA = (lpAmount / _totalSupply) * reserveA;
