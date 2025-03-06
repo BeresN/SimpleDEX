@@ -7,8 +7,8 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract LiquidityPool is ERC20 {
     using SafeERC20 for IERC20;
-    address public immutable tokenA;
-    address public immutable tokenB;
+    IERC20 public immutable tokenA;
+    IERC20 public immutable tokenB;
     address public immutable exchangeAddress;
 
     uint256 private reserveA;
@@ -33,8 +33,8 @@ contract LiquidityPool is ERC20 {
         address _exchangeAddress
     ) ERC20("LiquidityPoolToken", "LPT") {
         exchangeAddress = _exchangeAddress;
-        tokenA = _tokenA;
-        tokenB = _tokenB;
+        tokenA = IERC20(_tokenA);
+        tokenB = IERC20(_tokenB);
     }
 
     function getReserves() public view returns (uint256, uint256) {
@@ -48,9 +48,8 @@ contract LiquidityPool is ERC20 {
     }
 
     function getTokenAddresses() public view returns (address, address) {
-        return (tokenA, tokenB);
+        return (address(tokenA), address(tokenB));
     }
-
 
     function addLiquidity(
         uint256 amountA,
@@ -62,11 +61,11 @@ contract LiquidityPool is ERC20 {
         IERC20(tokenB).safeTransferFrom(msg.sender, address(this), amountB);
 
         if (_totalSupply == 0) {
-            lpMinted = Math.sqrt(amountA * amountB);
+            lpMinted = Math.sqrt(uint256(amountA) * uint256(amountB));
         } else {
             lpMinted = Math.min(
-                (amountA * _totalSupply) / reserveA,
-                (amountB * _totalSupply) / reserveB
+                amountA = (lpTokensAmount * reserveA) / _totalSupply,
+                amountB = (lpTokensAmount * reserveB) / _totalSupply
             );
         }
         require(lpMinted > 0, "LP amount must be > 0");
@@ -79,17 +78,17 @@ contract LiquidityPool is ERC20 {
     }
 
     function removeLiquidity(
-        uint256 lpAmount
+        uint256 lpTokensAmount
     ) external returns (uint256 amountA, uint256 amountB) {
         uint256 _totalSupply = totalSupply();
-        require(lpAmount > 0, "Amount must be greater than zero");
+        require(lpTokensAmount > 0, "Amount must be greater than zero");
 
-        amountA = (lpAmount / _totalSupply) * reserveA;
-        amountB = (lpAmount / _totalSupply) * reserveB;
+        amountA = (lpTokensAmount / _totalSupply) * reserveA;
+        amountB = (lpTokensAmount / _totalSupply) * reserveB;
 
         require(amountA > 0 && amountB > 0, "Insufficient liquidity");
 
-        _burn(msg.sender, lpAmount);
+        _burn(msg.sender, lpTokensAmount);
 
         reserveA -= amountA;
         reserveB -= amountB;
@@ -97,6 +96,6 @@ contract LiquidityPool is ERC20 {
         IERC20(tokenA).safeTransfer(msg.sender, amountA);
         IERC20(tokenB).safeTransfer(msg.sender, amountB);
 
-        emit LiquidityRemoved(msg.sender, amountA, amountB, lpAmount);
+        emit LiquidityRemoved(msg.sender, amountA, amountB, lpTokensAmount);
     }
 }

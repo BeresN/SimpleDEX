@@ -49,6 +49,7 @@ contract Exchange is Ownable, ReentrancyGuard {
         uint256 numerator = inputAmountWithFee * outputReserve;
         uint256 denominator = (inputReserve * 100) + inputAmountWithFee;
 
+        require(numerator / denominator > 0, "Zero output amount");
         return numerator / denominator;
     }
 
