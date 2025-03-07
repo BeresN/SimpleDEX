@@ -56,16 +56,16 @@ contract LiquidityPool is ERC20 {
         uint256 amountB
     ) external returns (uint256 lpMinted) {
         require(amountA > 0 && amountB > 0, "Must be more than 0");
-        uint256 _totalSupply = totalSupply();
+        uint256 lpTotalSupply = totalSupply();
         IERC20(tokenA).safeTransferFrom(msg.sender, address(this), amountA);
         IERC20(tokenB).safeTransferFrom(msg.sender, address(this), amountB);
 
-        if (_totalSupply == 0) {
+        if (lpTotalSupply == 0) {
             lpMinted = Math.sqrt(uint256(amountA) * uint256(amountB));
         } else {
             lpMinted = Math.min(
-                amountA = (lpTokensAmount * reserveA) / _totalSupply,
-                amountB = (lpTokensAmount * reserveB) / _totalSupply
+                (amountA * lpTotalSupply) / reserveA,
+                (amountB * lpTotalSupply) / reserveB
             );
         }
         require(lpMinted > 0, "LP amount must be > 0");
@@ -80,11 +80,11 @@ contract LiquidityPool is ERC20 {
     function removeLiquidity(
         uint256 lpTokensAmount
     ) external returns (uint256 amountA, uint256 amountB) {
-        uint256 _totalSupply = totalSupply();
+        uint256 lpTotalSupply = totalSupply();
         require(lpTokensAmount > 0, "Amount must be greater than zero");
 
-        amountA = (lpTokensAmount / _totalSupply) * reserveA;
-        amountB = (lpTokensAmount / _totalSupply) * reserveB;
+        amountA = (lpTokensAmount * reserveA) / lpTotalSupply;
+        amountB = (lpTokensAmount * reserveB) / lpTotalSupply;
 
         require(amountA > 0 && amountB > 0, "Insufficient liquidity");
 
