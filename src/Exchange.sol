@@ -111,6 +111,4 @@ contract Exchange is Ownable, ReentrancyGuard {
         require(token == tokenA || token == tokenB, "Invalid token");
         IERC20(token).safeTransfer(to, amount);
     }
-
-    receive() external payable {}
 }

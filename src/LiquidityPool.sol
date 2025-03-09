@@ -75,11 +75,12 @@ contract LiquidityPool is ERC20 {
         reserveB += amountB;
 
         emit LiquidityAdded(msg.sender, amountA, amountB, lpMinted);
+        return (lpMinted);
     }
 
-    function removeLiquidity(
-        uint256 lpTokensAmount
-    ) external returns (uint256 amountA, uint256 amountB) {
+    function removeLiquidity(uint256 lpTokensAmount) external {
+        uint256 amountA;
+        uint256 amountB;
         uint256 lpTotalSupply = totalSupply();
         require(lpTokensAmount > 0, "Amount must be greater than zero");
 

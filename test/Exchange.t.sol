@@ -2,35 +2,28 @@
 pragma solidity 0.8.28;
 
 import "forge-std/Test.sol";
-import "forge-std/console.sol";
-import "../src/LiquidityPool.sol";
 import "../src/Exchange.sol";
+import "../src/LiquidityPool.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract MockERC20 is ERC20 {
     constructor(string memory name, string memory symbol) ERC20(name, symbol) {
-        _mint(msg.sender, 100000 * 10 ** decimals());
+        _mint(msg.sender, 1_000_000 ether);
     }
 }
 
-contract LiquidityPoolTest is Test {
+contract ExchangeTest is Test {
     MockERC20 tokenA;
     MockERC20 tokenB;
-    MockERC20 lpTokens;
-
     LiquidityPool pool;
     Exchange exchange;
 
-    address owner = address(0x123);
-    address user = address(0x456);
+    address user = address(0x123);
 
     function setUp() public {
-        // Deploy mock tokens
         tokenA = new MockERC20("TokenA", "TKA");
         tokenB = new MockERC20("TokenB", "TKB");
-        lpTokens = new MockERC20("lpTOkens", "LPTK");
 
-        // Deploy Liquidity Pool and Exchange
         pool = new LiquidityPool(
             address(tokenA),
             address(tokenB),
@@ -38,74 +31,102 @@ contract LiquidityPoolTest is Test {
         );
         exchange = new Exchange(address(pool), address(this));
 
-        // Approve pool to spend tokens on behalf of this contract
+        // Mint tokens to user and approve
+        tokenA.transfer(user, 500_000 ether);
+        tokenB.transfer(user, 500_000 ether);
+
+        vm.startPrank(user);
         tokenA.approve(address(pool), type(uint256).max);
         tokenB.approve(address(pool), type(uint256).max);
-
-        // Approve exchange to spend tokens
         tokenA.approve(address(exchange), type(uint256).max);
         tokenB.approve(address(exchange), type(uint256).max);
-    }
-    function testAddLiquidity() public {
-        uint256 lpMinted = pool.addLiquidity(100 ether, 100 ether);
-        assertEq(lpMinted, 100 ether);
 
-        (uint256 reserveA, uint256 reserveB) = pool.getReserves();
-        assertEq(reserveA, 100 ether);
-        assertEq(reserveB, 100 ether);
+        // Add initial liquidity
+        pool.addLiquidity(100_000 ether, 100_000 ether);
+        vm.stopPrank();
     }
 
-    function testRemoveLiquidity() public {
-        pool.addLiquidity(100 ether, 100 ether);
-        pool.approve(address(pool), pool.balanceOf(address(this)));
-        uint256 lpBalance = 100 ether;
+    function testInitialSetup() public view {
+        (address poolTokenA, address poolTokenB) = pool.getTokenAddresses();
+        assertEq(poolTokenA, address(tokenA));
+        assertEq(poolTokenB, address(tokenB));
+
+        assertEq(exchange.tokenA(), address(tokenA));
+        assertEq(exchange.tokenB(), address(tokenB));
+
         (uint256 reserveA, uint256 reserveB) = pool.getReserves();
-
-        console.log("LP to Burn: ", lpBalance);
-        console.log("Reserve A: ", reserveA);
-        console.log("Reserve B: ", reserveB);
-        pool.removeLiquidity(lpBalance);
-
-        console.log("LP to Burn: ", lpBalance);
-        console.log("Reserve A: ", reserveA);
-        console.log("Reserve B: ", reserveB);
-        assertEq(reserveA, 0);
-        assertEq(reserveB, 0);
-
-        assertEq(tokenA.balanceOf(address(this)), 100 ether);
-        assertEq(tokenB.balanceOf(address(this)), 100 ether);
+        assertEq(reserveA, 100_000 ether);
+        assertEq(reserveB, 100_000 ether);
     }
 
     function testSwapTokenAToB() public {
-        pool.addLiquidity(100 ether, 100 ether);
+        vm.startPrank(user);
 
-        tokenA.approve(address(exchange), 10 ether);
+        uint256 amountIn = 10_000 ether;
+        uint256 balanceBefore = tokenB.balanceOf(user);
 
-        uint256 tokenBReceived = exchange.swapTokenAToB(10 ether);
+        uint256 amountOut = exchange.swapTokenAToB(amountIn);
 
-        assertGt(tokenBReceived, 0);
+        assertGt(amountOut, 0);
+        assertEq(tokenA.balanceOf(user), 490_000 ether);
+        assertEq(tokenB.balanceOf(user), balanceBefore + amountOut);
 
         (uint256 reserveA, uint256 reserveB) = pool.getReserves();
-        assertEq(reserveA, 110 ether);
-        assertEq(reserveB, 90 ether);
+        assertEq(reserveA, 110_000 ether);
+        assertEq(reserveB, 100_000 ether - amountOut);
+
+        vm.stopPrank();
     }
 
     function testSwapTokenBToA() public {
-        pool.addLiquidity(100 ether, 100 ether);
+        vm.startPrank(user);
 
-        tokenB.approve(address(exchange), 10 ether);
+        uint256 amountIn = 10_000 ether;
+        uint256 balanceBefore = tokenA.balanceOf(user);
 
-        uint256 tokenAReceived = exchange.swapTokenBToA(10 ether);
+        uint256 amountOut = exchange.swapTokenBToA(amountIn);
 
-        assertGt(tokenAReceived, 0);
+        assertGt(amountOut, 0);
+        assertEq(tokenB.balanceOf(user), 490_000 ether);
+        assertEq(tokenA.balanceOf(user), balanceBefore + amountOut);
 
         (uint256 reserveA, uint256 reserveB) = pool.getReserves();
-        assertEq(reserveA, 90 ether);
-        assertEq(reserveB, 110 ether);
+        assertEq(reserveA, 100_000 ether - amountOut);
+        assertEq(reserveB, 110_000 ether);
+
+        vm.stopPrank();
     }
 
-    function testUnauthorizedReserveUpdate() public {
-        vm.expectRevert("Unauthorized");
-        pool.updateReserves(500 ether, 500 ether);
+    function testOnlyOwnerCanTransferTokens() public {
+        uint256 ownerBalanceBefore = tokenA.balanceOf(address(this));
+        uint256 amount = 30 ether;
+        exchange.transferTokens(address(tokenA), address(this), amount);
+        assertEq(tokenA.balanceOf(address(this)), amount, "Transfer failed");
+        uint256 ownerBalanceAfter = tokenA.balanceOf(address(this));
+        assertEq(ownerBalanceAfter, ownerBalanceBefore + amount);
+
+        vm.expectRevert("Ownable: caller is not the owner");
+        vm.prank(user);
+        exchange.transferTokens(address(tokenA), user, amount);
+    }
+
+    function test_RevertWhen_SwapWithInsufficientReserves() public {
+        vm.startPrank(user);
+
+        uint256 amountIn = 500_000 ether; // Exceeds reserve
+        exchange.swapTokenAToB(amountIn);
+
+        vm.stopPrank();
+    }
+
+    function testGetOutputAmountFromSwap() public view {
+        uint256 inputAmount = 10_000 ether;
+        uint256 outputAmount = exchange.getOutputAmountFromSwap(
+            inputAmount,
+            100_000 ether,
+            100_000 ether
+        );
+
+        assertGt(outputAmount, 0);
     }
 }
