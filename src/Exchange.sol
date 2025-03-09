@@ -14,8 +14,8 @@ contract Exchange is Ownable, ReentrancyGuard {
     address public immutable tokenB;
 
     event Swap(
-        address indexed user,
-        uint256 amountIn,
+        address indexed user   
+             uint256 amountIn,
         uint256 amountOut,
         bool isTokenToEth
     );
