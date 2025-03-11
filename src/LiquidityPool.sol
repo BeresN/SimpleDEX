@@ -32,9 +32,12 @@ contract LiquidityPool is ERC20 {
         address _tokenB,
         address _exchangeAddress
     ) ERC20("LiquidityPoolToken", "LPT") {
-        exchangeAddress = _exchangeAddress;
+        require(_tokenA != address(0) && _tokenB != address(0), "Zero address");
+        require(_exchangeAddress != address(0), "Zero exchange address");
+
         tokenA = IERC20(_tokenA);
         tokenB = IERC20(_tokenB);
+        exchangeAddress = _exchangeAddress;
     }
 
     function getReserves() public view returns (uint256, uint256) {
