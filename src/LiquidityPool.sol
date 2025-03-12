@@ -32,9 +32,12 @@ contract LiquidityPool is ERC20 {
         address _tokenB,
         address _exchangeAddress
     ) ERC20("LiquidityPoolToken", "LPT") {
-        exchangeAddress = _exchangeAddress;
+        require(_tokenA != address(0) && _tokenB != address(0), "Zero address");
+        require(_exchangeAddress != address(0), "Zero exchange address");
+
         tokenA = IERC20(_tokenA);
         tokenB = IERC20(_tokenB);
+        exchangeAddress = _exchangeAddress;
     }
 
     function getReserves() public view returns (uint256, uint256) {
@@ -56,16 +59,16 @@ contract LiquidityPool is ERC20 {
         uint256 amountB
     ) external returns (uint256 lpMinted) {
         require(amountA > 0 && amountB > 0, "Must be more than 0");
-        uint256 _totalSupply = totalSupply();
+        uint256 lpTotalSupply = totalSupply();
         IERC20(tokenA).safeTransferFrom(msg.sender, address(this), amountA);
         IERC20(tokenB).safeTransferFrom(msg.sender, address(this), amountB);
 
-        if (_totalSupply == 0) {
+        if (lpTotalSupply == 0) {
             lpMinted = Math.sqrt(uint256(amountA) * uint256(amountB));
         } else {
             lpMinted = Math.min(
-                amountA = (lpTokensAmount * reserveA) / _totalSupply,
-                amountB = (lpTokensAmount * reserveB) / _totalSupply
+                (amountA * lpTotalSupply) / reserveA,
+                (amountB * lpTotalSupply) / reserveB
             );
         }
         require(lpMinted > 0, "LP amount must be > 0");
@@ -75,16 +78,17 @@ contract LiquidityPool is ERC20 {
         reserveB += amountB;
 
         emit LiquidityAdded(msg.sender, amountA, amountB, lpMinted);
+        return (lpMinted);
     }
 
-    function removeLiquidity(
-        uint256 lpTokensAmount
-    ) external returns (uint256 amountA, uint256 amountB) {
-        uint256 _totalSupply = totalSupply();
+    function removeLiquidity(uint256 lpTokensAmount) external {
+        uint256 amountA;
+        uint256 amountB;
+        uint256 lpTotalSupply = totalSupply();
         require(lpTokensAmount > 0, "Amount must be greater than zero");
 
-        amountA = (lpTokensAmount / _totalSupply) * reserveA;
-        amountB = (lpTokensAmount / _totalSupply) * reserveB;
+        amountA = (lpTokensAmount * reserveA) / lpTotalSupply;
+        amountB = (lpTokensAmount * reserveB) / lpTotalSupply;
 
         require(amountA > 0 && amountB > 0, "Insufficient liquidity");
 

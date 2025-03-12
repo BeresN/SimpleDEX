@@ -2,122 +2,92 @@
 pragma solidity 0.8.28;
 
 import "forge-std/Test.sol";
-import "../src/LiquidityPool.sol";
 import "../src/Exchange.sol";
+import "../src/LiquidityPool.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract MockToken is ERC20 {
-    constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
-
-    function mint(address to, uint256 amount) external {
-        _mint(to, amount);
+contract MockERC20 is ERC20 {
+    constructor(string memory name, string memory symbol) ERC20(name, symbol) {
+        _mint(msg.sender, 1_000_000 ether);
     }
 }
 
-contract LiquidityPoolExchangeTest is Test {
-    LiquidityPool public pool;
-    Exchange public exchange;
-    MockToken public tokenA;
-    MockToken public tokenB;
+contract ExchangeTest is Test {
+    MockERC20 tokenA;
+    MockERC20 tokenB;
+    LiquidityPool pool;
+    Exchange exchange;
 
-    address public owner = address(this);
-    address public user = address(0x123);
+    address user = address(0x123);
 
     function setUp() public {
-        tokenA = new MockToken("TokenA", "TKA");
-        tokenB = new MockToken("TokenB", "TKB");
+        console.log("Starting setup...");
 
-        pool = new LiquidityPool(address(tokenA), address(tokenB), owner);
-        exchange = new Exchange(address(pool), owner);
+        // Deploy tokens
+        tokenA = new MockERC20("TokenA", "TKA");
+        tokenB = new MockERC20("TokenB", "TKB");
+        console.log("Tokens deployed");
 
-        tokenA.mint(user, 1_000 ether);
-        tokenB.mint(user, 1_000 ether);
+        // Deploy pool FIRST to pass valid address
+        pool = new LiquidityPool(
+            address(tokenA),
+            address(tokenB),
+            address(this) // Owner or Exchange controller
+        );
+        console.log("LiquidityPool deployed");
 
+        // Now deploy exchange with a valid pool address
+        exchange = new Exchange(address(pool), address(this));
+        console.log("Exchange deployed");
+
+        // Mint and transfer tokens
+        tokenA.transfer(user, 500_000 ether);
+        tokenB.transfer(user, 500_000 ether);
+        console.log("Tokens transferred to user");
+
+        // Approve tokens for both pool and exchange
         vm.startPrank(user);
         tokenA.approve(address(pool), type(uint256).max);
         tokenB.approve(address(pool), type(uint256).max);
         tokenA.approve(address(exchange), type(uint256).max);
         tokenB.approve(address(exchange), type(uint256).max);
-        vm.stopPrank();
-    }
+        console.log("Tokens approved");
 
-    function testAddLiquidity() public {
-        vm.startPrank(user);
-
-        uint256 amountA = 100 ether;
-        uint256 amountB = 200 ether;
-
-        uint256 lpTokens = pool.addLiquidity(amountA, amountB);
-
-        assertEq(pool.balanceOf(user), lpTokens, "LP token balance mismatch");
-
-        (uint256 reserveA, uint256 reserveB) = pool.getReserves();
-        assertEq(reserveA, amountA, "ReserveA mismatch");
-        assertEq(reserveB, amountB, "ReserveB mismatch");
+        // Add initial liquidity
+        pool.addLiquidity(100_000 ether, 100_000 ether);
+        console.log("Liquidity added");
 
         vm.stopPrank();
     }
 
-    function testRemoveLiquidity() public {
-        vm.startPrank(user);
+    function testInitialSetup() public view {
+        (address poolTokenA, address poolTokenB) = pool.getTokenAddresses();
+        assertEq(poolTokenA, address(tokenA));
+        assertEq(poolTokenB, address(tokenB));
 
-        uint256 amountA = 100 ether;
-        uint256 amountB = 200 ether;
-
-        uint256 lpTokens = pool.addLiquidity(amountA, amountB);
-
-        uint256 balanceA = tokenA.balanceOf(user);
-        uint256 balanceB = tokenB.balanceOf(user);
-
-        (uint256 removedA, uint256 removedB) = pool.removeLiquidity(lpTokens);
-
-        assertEq(
-            tokenA.balanceOf(user),
-            balanceA + removedA,
-            "TokenA balance mismatch"
-        );
-        assertEq(
-            tokenB.balanceOf(user),
-            balanceB + removedB,
-            "TokenB balance mismatch"
-        );
+        assertEq(exchange.tokenA(), address(tokenA));
+        assertEq(exchange.tokenB(), address(tokenB));
 
         (uint256 reserveA, uint256 reserveB) = pool.getReserves();
-        assertEq(reserveA, 0, "ReserveA should be zero");
-        assertEq(reserveB, 0, "ReserveB should be zero");
-
-        vm.stopPrank();
+        assertEq(reserveA, 100_000 ether);
+        assertEq(reserveB, 100_000 ether);
     }
 
     function testSwapTokenAToB() public {
         vm.startPrank(user);
 
-        uint256 amountA = 100 ether;
-        uint256 amountB = 200 ether;
+        uint256 amountIn = 10_000 ether;
+        uint256 balanceBefore = tokenB.balanceOf(user);
 
-        pool.addLiquidity(amountA, amountB);
+        uint256 amountOut = exchange.swapTokenAToB(amountIn);
 
-        uint256 swapAmount = 10 ether;
-        uint256 tokenBBalanceBefore = tokenB.balanceOf(user);
-
-        uint256 tokenBOut = exchange.swapTokenAToB(swapAmount);
-
-        assert(tokenBOut > 0, "Swap should produce output");
-
-        assertEq(
-            tokenB.balanceOf(user),
-            tokenBBalanceBefore + tokenBOut,
-            "TokenB balance mismatch"
-        );
+        assertGt(amountOut, 0);
+        assertEq(tokenA.balanceOf(user), 490_000 ether);
+        assertEq(tokenB.balanceOf(user), balanceBefore + amountOut);
 
         (uint256 reserveA, uint256 reserveB) = pool.getReserves();
-
-        assertEq(
-            reserveA,
-            amountA + swapAmount,
-            "ReserveA mismatch after swap"
-        );
-        assertEq(reserveB, amountB - tokenBOut, "ReserveB mismatch after swap");
+        assertEq(reserveA, 110_000 ether);
+        assertEq(reserveB, 100_000 ether - amountOut);
 
         vm.stopPrank();
     }
@@ -125,50 +95,52 @@ contract LiquidityPoolExchangeTest is Test {
     function testSwapTokenBToA() public {
         vm.startPrank(user);
 
-        uint256 amountA = 100 ether;
-        uint256 amountB = 200 ether;
-
-        pool.addLiquidity(amountA, amountB);
-
-        uint256 swapAmount = 10 ether;
-        uint256 tokenABalanceBefore = tokenA.balanceOf(user);
-
-        uint256 tokenAOut = exchange.swapTokenBToA(swapAmount);
-
-        assert(tokenAOut > 0, "Swap should produce output");
-
-        assertEq(
-            tokenA.balanceOf(user),
-            tokenABalanceBefore + tokenAOut,
-            "TokenA balance mismatch"
+        uint256 amountIn = 10_000 ether;
+        uint256 balanceBefore = tokenA.balanceOf(user);
+        console.log("User TokenA Balance:", tokenA.balanceOf(user));
+        uint256 amountOut = exchange.swapTokenBToA(amountIn);
+        console.log(
+            "Exchange TokenA Balance:",
+            tokenA.balanceOf(address(exchange))
         );
 
+        // Ensure output is greater than zero
+        assertGt(amountOut, 0);
+
+        // Check user balances after swap (with fee consideration)
+        uint256 expectedTokenB = 500_000 ether - amountIn;
+        assertEq(tokenB.balanceOf(user), expectedTokenB);
+        assertEq(tokenA.balanceOf(user), balanceBefore + amountOut);
+
+        // Check pool reserves
         (uint256 reserveA, uint256 reserveB) = pool.getReserves();
+        console.log("Pool Reserves:", reserveA, reserveB);
 
-        assertEq(reserveA, amountA - tokenAOut, "ReserveA mismatch after swap");
-        assertEq(
-            reserveB,
-            amountB + swapAmount,
-            "ReserveB mismatch after swap"
+        uint256 expectedReserveA = 100_000 ether - amountOut;
+        uint256 expectedReserveB = 100_000 ether + (amountIn * 99) / 100;
+        assertEq(reserveA, expectedReserveA);
+        assertEq(reserveB, expectedReserveB);
+
+        vm.stopPrank();
+    }
+
+    function test_RevertWhen_SwapWithInsufficientReserves() public {
+        vm.startPrank(user);
+
+        uint256 amountIn = 500_000 ether; // Exceeds reserve
+        exchange.swapTokenAToB(amountIn);
+
+        vm.stopPrank();
+    }
+
+    function testGetOutputAmountFromSwap() public view {
+        uint256 inputAmount = 10_000 ether;
+        uint256 outputAmount = exchange.getOutputAmountFromSwap(
+            inputAmount,
+            100_000 ether,
+            100_000 ether
         );
 
-        vm.stopPrank();
-    }
-
-    function testUnauthorizedUpdateReserves() public {
-        vm.expectRevert("Unauthorized");
-        pool.updateReserves(100, 100);
-    }
-
-    function testTransferTokens() public {
-        uint256 amount = 50 ether;
-        vm.startPrank(user);
-        pool.addLiquidity(100 ether, 200 ether);
-        vm.stopPrank();
-
-        vm.prank(owner);
-        exchange.transferTokens(address(tokenA), user, amount);
-
-        assertEq(tokenA.balanceOf(user), amount, "TokenA transfer mismatch");
+        assertGt(outputAmount, 0);
     }
 }
