@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 import { ArrowDown } from 'lucide-react';
 import { useAccount, useBalance } from 'wagmi';
