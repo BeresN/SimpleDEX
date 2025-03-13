@@ -1,33 +1,37 @@
+'use client';
 
 import '@rainbow-me/rainbowkit/styles.css';
-import { getDefaultWallets, RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit';
-import { configureChains, createConfig, WagmiConfig } from 'wagmi';
-import { mainnet, polygon, optimism, arbitrum } from 'wagmi/chains';
-import { publicProvider } from 'wagmi/providers/public';
+import { RainbowKitProvider, darkTheme, getDefaultConfig } from '@rainbow-me/rainbowkit';
+import { WagmiProvider } from 'wagmi';
+import { mainnet, polygon, optimism, arbitrum } from 'viem/chains';
+import { http } from 'viem';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import './globals.css';
 
-const { chains, publicClient } = configureChains(
-  [mainnet, polygon, optimism, arbitrum],
-  [publicProvider()]
-);
 
-const { connectors } = getDefaultWallets({
+// Create the wagmi config using RainbowKit's helper function
+const config = getDefaultConfig({
   appName: 'My own dex',
-  projectId: 'YOUR_PROJECT_ID', // Replace with your actual WalletConnect projectId
-  chains
+  projectId: '1b3a726e2fb752ad32e2efc2cb75b595',
+  chains: [mainnet, polygon, optimism, arbitrum],
+  transports: {
+    [mainnet.id]: http(),
+    [polygon.id]: http(),
+    [optimism.id]: http(),
+    [arbitrum.id]: http(),
+  },
 });
 
-const wagmiConfig = createConfig({
-  autoConnect: true,
-  connectors,
-  publicClient
-});
+// Initialize the Query Client
+const queryClient = new QueryClient();
 
+// Export the providers component
 export function Providers({ children }) {
   return (
-    <WagmiConfig config={wagmiConfig}>
-      <RainbowKitProvider chains={chains} theme={darkTheme()}>
-        {children}
-      </RainbowKitProvider>
-    </WagmiConfig>
+    <QueryClientProvider client={queryClient}>
+      <WagmiProvider config={config}>
+        <RainbowKitProvider theme={darkTheme()}>{children}</RainbowKitProvider>
+      </WagmiProvider>
+    </QueryClientProvider>
   );
 }
