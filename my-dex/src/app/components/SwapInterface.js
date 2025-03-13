@@ -1,5 +1,6 @@
+'use client';
+
 import { useState } from 'react';
-import { ArrowDown } from 'lucide-react';
 import { useAccount, useBalance } from 'wagmi';
 
 export default function SwapInterface() {
@@ -60,7 +61,6 @@ export default function SwapInterface() {
           onClick={handleSwapTokens}
           className="bg-gray-700 p-2 rounded-full hover:bg-gray-600 transition"
         >
-          <ArrowDown size={20} />
         </button>
       </div>
       
