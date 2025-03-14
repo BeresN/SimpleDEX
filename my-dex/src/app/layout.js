@@ -1,8 +1,9 @@
 import './globals.css';
+import './style.css';
 import { Providers } from './providers';
 
 export const metadata = {
-  title: 'UniswapClone - Decentralized Exchange',
+  title: 'My DEX',
   description: 'A decentralized exchange like Uniswap',
 };
 

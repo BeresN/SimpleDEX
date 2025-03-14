@@ -49,6 +49,8 @@ export default function SwapInterface() {
             className="bg-gray-700 rounded-xl p-2"
           >
             <option value="ETH">ETH</option>
+            <option value="ETH">Sepolia</option>
+            <option value="XTZ">Link</option>
             <option value="USDC">USDC</option>
             <option value="WBTC">WBTC</option>
             <option value="DAI">DAI</option>
@@ -82,6 +84,8 @@ export default function SwapInterface() {
             className="bg-gray-700 rounded-xl p-2"
           >
             <option value="ETH">ETH</option>
+            <option value="ETH">Sepolia</option>
+            <option value="XTZ">Link</option>
             <option value="USDC">USDC</option>
             <option value="WBTC">WBTC</option>
             <option value="DAI">DAI</option>

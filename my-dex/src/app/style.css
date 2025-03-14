@@ -1,0 +1,287 @@
+/* Base styles */
+:root {
+  --primary: #ff007a;
+  --primary-hover: #ff4d9e;
+  --bg-dark: #191b1f;
+  --bg-darker: #0d111c;
+  --bg-light: #2c2f36;
+  --bg-lighter: #383d48;
+  --text: #ffffff;
+  --text-secondary: #9faab8;
+  --border-radius: 20px;
+  --transition: all 0.2s ease;
+}
+
+body {
+  background-color: var(--bg-darker);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+}
+
+/* Layout */
+.min-h-screen {
+  min-height: 100vh;
+  background: linear-gradient(to bottom, #0d111c, #131720);
+}
+
+.container {
+  max-width: 1200px;
+}
+
+/* Ensure wallet connection stays in top right */
+nav.flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+/* Make sure the ConnectButton stays on the right */
+nav > :last-child {
+  margin-left: auto;
+}
+
+
+/* Override Tailwind classes for the navbar */
+.bg-gray-900 {
+  background-color: rgba(13, 17, 28, 0.95) !important;
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(86, 90, 105, 0.2);
+}
+
+nav.flex {
+  padding: 1rem 2rem;
+}
+
+/* Style the brand name with gradient */
+nav .text-xl.font-bold {
+  font-size: 1.5rem;
+  font-weight: 700;
+  background: linear-gradient(to right, #ff007a, #bd2179);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+* Fix for navbar styling */
+.text-xl.font-bold {
+  background: linear-gradient(to right, #ff007a, #bd2179);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  font-size: 1.5rem;
+  padding-right: 2rem;
+}
+
+/* Target the nav links specifically */
+.ml-8.space-x-4 {
+  display: flex;
+  gap: 1.5rem !important;
+  margin-left: 2rem;
+}
+
+/* Override any existing styles that may be causing issues */
+.ml-8.space-x-4 > a {
+  margin: 0 !important;
+  padding: 0.5rem 1rem !important;
+  border-radius: 0.5rem !important;
+  background-color: transparent;
+  color: white !important;
+  transition: all 0.2s ease;
+  display: block !important;
+  font-weight: 500;
+}
+
+.ml-8.space-x-4 > a:hover {
+  background-color: rgba(255, 0, 122, 0.15) !important;
+  color: #ff007a !important;
+}
+
+/* Fix the color for the blue links */
+.ml-8.space-x-4 > a[href="/swap"],
+.ml-8.space-x-4 > a[href="/pool"],
+.ml-8.space-x-4 > a[href="/vote"],
+.ml-8.space-x-4 > a[href="/charts"] {
+  color: white !important; 
+  text-decoration: none !important;
+}
+
+/* Make sure the links don't bunch together */
+.ml-8.space-x-4 {
+  display: flex !important;
+  flex-direction: row !important;
+}
+
+/* Fix the specific blue text */
+a {
+  color: inherit !important;
+  text-decoration: none !important;
+}
+
+/* To make sure inline styling doesn't override */
+.ml-8.space-x-4 > a {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+/* Style the connect button if it has a specific class */
+.connect-button,
+button[class*="connect"] {
+  background-color: rgba(21, 61, 111, 0.44);
+  border-radius: 16px;
+  padding: 0.5rem 1.25rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(21, 61, 111, 0.44);
+}
+
+.connect-button:hover,
+button[class*="connect"]:hover {
+  border-color: #ff007a;
+}
+
+/* Swap interface */
+.bg-gray-800 {
+  background-color: var(--bg-dark);
+  border-radius: var(--border-radius);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(86, 90, 105, 0.2);
+}
+
+.bg-gray-900 {
+  background-color: var(--bg-light);
+  border-radius: var(--border-radius);
+}
+
+input[type="number"] {
+  font-size: 1.5rem;
+  font-weight: 500;
+  caret-color: var(--primary);
+}
+
+input[type="number"]:focus {
+  outline: none;
+}
+
+input::placeholder {
+  color: var(--text-secondary);
+}
+
+select {
+  background-color: var(--bg-lighter);
+  color: var(--text);
+  border-radius: 16px;
+  font-weight: 500;
+  border: none;
+  padding: 0.5rem 1rem;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='7' viewBox='0 0 12 7' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0.97168 1L6.20532 6L11.439 1' stroke='white' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+
+/* Buttons */
+button.bg-gray-700 {
+  background-color: var(--bg-lighter);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: rotate(90deg);
+}
+
+button.bg-gray-700::after {
+  content: '↓';
+  color: var(--text);
+  font-size: 18px;
+}
+
+button.bg-gray-700:hover {
+  background-color: var(--bg-light);
+}
+
+button.w-full {
+  background: linear-gradient(to right, var(--primary), #bd2179);
+  border-radius: 16px;
+  font-weight: 600;
+  padding: 1rem;
+  transition: var(--transition);
+}
+
+button.w-full:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+button.w-full:disabled {
+  background: var(--bg-lighter);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Feature cards */
+.bg-gray-800.p-6 {
+  transition: var(--transition);
+  border: 1px solid rgba(86, 90, 105, 0.2);
+}
+
+.bg-gray-800.p-6:hover {
+  transform: translateY(-5px);
+  border-color: rgba(255, 0, 122, 0.2);
+}
+
+.bg-gray-800.p-6 h2 {
+  color: var(--primary);
+}
+
+.bg-gray-800.p-6 p {
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Connect button (assuming it has a specific look) */
+.connect-button {
+  background-color: rgba(21, 61, 111, 0.44);
+  border-radius: 16px;
+  padding: 0.5rem 1.25rem;
+  font-weight: 500;
+  transition: var(--transition);
+  border: 1px solid rgba(21, 61, 111, 0.44);
+}
+
+.connect-button:hover {
+  border-color: var(--primary);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  nav .ml-8 {
+    margin-left: 1rem;
+  }
+  
+  nav .space-x-4 {
+    gap: 1rem;
+  }
+  
+  .max-w-md {
+    width: 100%;
+  }
+}
+
+/* Token balance display */
+.flex.justify-between span:nth-child(2) {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+/* Additional Uniswap-specific styling */
+h1.text-3xl {
+  background: linear-gradient(to right, var(--primary), #bd2179);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 700;
+}

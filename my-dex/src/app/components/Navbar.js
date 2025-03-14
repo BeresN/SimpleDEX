@@ -7,12 +7,12 @@ export default function Navbar() {
   return (
     <nav className="flex justify-between items-center p-4 bg-gray-900 text-white">
       <div className="flex items-center">
-        <Link href="/" className="text-xl font-bold">UniswapClone</Link>
-        <div className="ml-8 space-x-4">
-          <Link href="/swap" className="hover:text-pink-500 transition">Swap</Link>
-          <Link href="/pool" className="hover:text-pink-500 transition">Pool</Link>
-          <Link href="/vote" className="hover:text-pink-500 transition">Vote</Link>
-          <Link href="/charts" className="hover:text-pink-500 transition">Charts</Link>
+        <Link href="/" className="text-xl font-bold bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent">UniswapClone</Link>
+        <div className="ml-8 flex space-x-4">
+          <Link href="/swap" className="text-white hover:bg-pink-600 font-medium rounded-lg text-sm px-4 py-2 transition">Swap</Link>
+          <Link href="/pool" className="text-white hover:bg-pink-600 font-medium rounded-lg text-sm px-4 py-2 transition">Pool</Link>
+          <Link href="/vote" className="text-white hover:bg-pink-600 font-medium rounded-lg text-sm px-4 py-2 transition">Vote</Link>
+          <Link href="/charts" className="text-white hover:bg-pink-600 font-medium rounded-lg text-sm px-4 py-2 transition">Charts</Link>
         </div>
       </div>
       <ConnectButton />

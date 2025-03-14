@@ -1,16 +1,10 @@
-import Head from 'next/head';
-import Navbar from '../components/Navbar';
-import SwapInterface from '../components/SwapInterface';
+import SwapInterface from '..components/SwapInterface';
+import Navbar from '..components/Navbar';
+import '../style.css';
 
 export default function Home() {
   return (
     <div className="min-h-screen bg-gray-900">
-      <Head>
-        <title>UniswapClone - Decentralized Exchange</title>
-        <meta name="description" content="A decentralized exchange like Uniswap" />
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
-
       <Navbar />
       
       <main className="container mx-auto py-8 px-4">
