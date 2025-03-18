@@ -1,6 +1,6 @@
-import SwapInterface from '..components/SwapInterface';
-import Navbar from '..components/Navbar';
-import '../style.css';
+import SwapInterface from './components/SwapInterface';
+import Navbar from './components/Navbar';
+import './style.css';
 
 export default function Home() {
   return (
