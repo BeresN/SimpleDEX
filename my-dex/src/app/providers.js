@@ -3,7 +3,7 @@
 import '@rainbow-me/rainbowkit/styles.css';
 import { RainbowKitProvider, darkTheme, getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { WagmiProvider } from 'wagmi';
-import { mainnet, polygon, optimism, arbitrum } from 'viem/chains';
+import { seiTestnet, sepolia } from 'viem/chains';
 import { http } from 'viem';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import './globals.css';
@@ -13,12 +13,10 @@ import './globals.css';
 const config = getDefaultConfig({
   appName: 'My own dex',
   projectId: '1b3a726e2fb752ad32e2efc2cb75b595',
-  chains: [mainnet, polygon, optimism, arbitrum],
+  chains: [sepolia, seiTestnet],
   transports: {
-    [mainnet.id]: http(),
-    [polygon.id]: http(),
-    [optimism.id]: http(),
-    [arbitrum.id]: http(),
+    [sepolia.id]: http(),
+    [seiTestnet.id]: http(),
   },
 });
 
