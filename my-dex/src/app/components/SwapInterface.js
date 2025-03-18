@@ -29,13 +29,13 @@ export default function SwapInterface() {
   };
 
   return (
-    <div className="bg-gray-800 rounded-xl p-4 max-w-md mx-auto mt-8 text-white">
+    <div className="bg-gray-800 rounded-xl p-4 max-w-md mx-auto mt-8 text-white justify-center">
       <div className="mb-4">
-        <div className="flex justify-between mb-2">
+        <div className="mb-2">
           <span>From</span>
           {isConnected && <span>Balance: {balance?.formatted || "0"} {fromToken}</span>}
         </div>
-        <div className="bg-gray-900 p-3 rounded-xl flex justify-between">
+        <div className="bg-gray-900 p-3 rounded-xl flex justify-between self-center">
           <input
             type="number"
             value={fromAmount}
@@ -49,11 +49,8 @@ export default function SwapInterface() {
             className="bg-gray-700 rounded-xl p-2"
           >
             <option value="ETH">ETH</option>
-            <option value="ETH">Sepolia</option>
-            <option value="XTZ">Link</option>
-            <option value="USDC">USDC</option>
-            <option value="WBTC">WBTC</option>
-            <option value="DAI">DAI</option>
+            <option value="SEI">SEI</option>
+            
           </select>
         </div>
       </div>
@@ -67,7 +64,7 @@ export default function SwapInterface() {
       </div>
       
       <div className="mb-4">
-        <div className="flex justify-between mb-2">
+        <div className="mb-2">
           <span>To</span>
         </div>
         <div className="bg-gray-900 p-3 rounded-xl flex justify-between">
@@ -84,11 +81,8 @@ export default function SwapInterface() {
             className="bg-gray-700 rounded-xl p-2"
           >
             <option value="ETH">ETH</option>
-            <option value="ETH">Sepolia</option>
-            <option value="XTZ">Link</option>
-            <option value="USDC">USDC</option>
-            <option value="WBTC">WBTC</option>
-            <option value="DAI">DAI</option>
+            <option value="SEI">SEI</option>
+            
           </select>
         </div>
       </div>
