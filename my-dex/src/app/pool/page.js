@@ -1,11 +1,9 @@
 // pages/pool.js
 import Navbar from '../components/Navbar';
-import SwapInterface from '../components/SwapInterface';
-import '../styles/style.css';  // Adjust path as needed
-import Link from 'next/link';
+import '../style.css';  // Adjust path as needed
 
 
-export default function Pool() {
+export function Pool() {
   return (
     <div className="min-h-screen bg-gray-900">
       <Navbar />

@@ -1,10 +1,9 @@
 import Navbar from '../components/Navbar';
 import SwapInterface from '../components/SwapInterface';
 import '../style.css';
-import Link from 'next/link';
 
 
-export default function Swap() {
+export function Swap() {
   return (
     <div className="min-h-screen bg-gray-900">
       <Navbar />

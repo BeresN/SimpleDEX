@@ -1,5 +1,6 @@
 import './globals.css';
 import { Providers } from './providers';
+import Link from 'next/link';
 
 export const metadata = {
   title: 'My DEX',
