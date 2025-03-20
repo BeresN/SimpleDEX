@@ -1,5 +1,4 @@
 import Navbar from './components/Navbar';
-import SwapInterface from './components/SwapInterface';
 
 import './style.css';
 
@@ -9,8 +8,7 @@ export default function Home() {
       <Navbar />
       
       <main className="container mx-auto py-8 px-4 justify-center">
-        <h1 className="text-3xl font-bold text-center text-white mb-8">Swap tokens instantly</h1>
-        <SwapInterface />
+        <h1 className="text-3xl font-bold text-center text-white mb-8">Homepage</h1>
     
       </main>
     </div>

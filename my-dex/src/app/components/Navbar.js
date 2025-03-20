@@ -7,14 +7,12 @@ export default function Navbar() {
   return (
     <nav className="flex justify-between p-4 bg-gray-900 text-white">
       <div className="flex items-center">
-        <Link href="/" className="text-xl flex font-bold bg-gradient-to-r from-pink-500 to-purple-500">mySimpleDEX</Link>
+        <div className="text-xl flex font-bold bg-gradient-to-r from-pink-500 to-purple-500">mySimpleDEX</div>
         <div className="ml-8 flex space-x-4">
           <Link href="/">Home</Link>
           <Link href="/pool">Pool</Link>
           <Link href="/swap">Swap</Link>
-          <Link href="/vote">Vote</Link>
-          <Link href="/charts">Charts</Link>
-          
+          <Link href="/send">Send</Link>
         </div>
         
       </div>

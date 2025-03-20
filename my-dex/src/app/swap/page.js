@@ -3,7 +3,7 @@ import SwapInterface from '../components/SwapInterface';
 import '../style.css';
 
 
-export function Swap() {
+export default function Swap() {
   return (
     <div className="min-h-screen bg-gray-900">
       <Navbar />
