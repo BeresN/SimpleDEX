@@ -1,6 +1,6 @@
 import Navbar from '../components/Navbar';
 import SwapInterface from '../components/SwapInterface';
-import '../style.css';
+import '../style.css';  // Adjust path as needed
 
 
 export default function Swap() {

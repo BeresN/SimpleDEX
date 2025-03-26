@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.28;
+pragma solidity ^0.8.28;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
@@ -87,12 +87,12 @@ contract LiquidityPool is ERC20 {
         uint256 lpTotalSupply = totalSupply();
         require(lpTokensAmount > 0, "Amount must be greater than zero");
 
+        _burn(msg.sender, lpTokensAmount);
+
         amountA = (lpTokensAmount * reserveA) / lpTotalSupply;
         amountB = (lpTokensAmount * reserveB) / lpTotalSupply;
 
         require(amountA > 0 && amountB > 0, "Insufficient liquidity");
-
-        _burn(msg.sender, lpTokensAmount);
 
         reserveA -= amountA;
         reserveB -= amountB;

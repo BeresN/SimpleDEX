@@ -1,7 +1,7 @@
 /* Base styles */
 :root {
-  --primary: #ff007a;
-  --primary-hover: #ff4d9e;
+  --primary: #c0f171;
+  --primary-hover: #71ff4d;
   --bg-dark: #191b1f;
   --bg-darker: #0d111c;
   --bg-light: #2c2f36;
@@ -50,7 +50,7 @@ nav > :last-child {
 nav .flex .text-xl.font-bold {
   font-size: 1.5rem;
   text-align: left;
-  background: linear-gradient(to right, #ff007a, #bd2179);
+  background: linear-gradient(to right, #92af43, #94f876);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -80,7 +80,7 @@ nav .flex .text-xl.font-bold {
 
 .ml-8.space-x-4 > a:hover {
   background-color: rgba(255, 0, 122, 0.15) !important;
-  color: #ff007a !important;
+  color: #94f876 !important;
 }
 
 /* Fix the color for the blue links */
@@ -123,7 +123,7 @@ button[class*="connect"] {
 
 .connect-button:hover,
 button[class*="connect"]:hover {
-  border-color: #ff007a;
+  border-color: #94f876;
 }
 
 
@@ -175,7 +175,7 @@ button.bg-gray-700:hover {
 }
 
 button.w-full {
-  background: linear-gradient(to right, var(--primary), #bd2179);
+  background: linear-gradient(to right, var(--primary), #94f876);
   border-radius: 16px;
   font-weight: 600;
   padding: 1rem;
@@ -202,7 +202,7 @@ button.w-full:disabled {
 
 /* Additional Uniswap-specific styling */
 h1.text-3xl {
-  background: linear-gradient(to right, var(--primary), #bd2179);
+  background: linear-gradient(to right, var(--primary), #94f876);
   -webkit-background-clip: text;
   background-clip: text;
   text-align:center;

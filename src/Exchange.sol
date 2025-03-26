@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.28;
+pragma solidity ^0.8.28;
 
 import "./LiquidityPool.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -14,8 +14,8 @@ contract Exchange is Ownable, ReentrancyGuard {
     address public immutable tokenB;
 
     event Swap(
-        address indexed user   
-             uint256 amountIn,
+        address indexed user,
+        uint256 amountIn,
         uint256 amountOut,
         bool isTokenToEth
     );

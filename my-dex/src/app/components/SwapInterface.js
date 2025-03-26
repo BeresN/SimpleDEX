@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useAccount, useBalance } from 'wagmi';
+import "tailwindcss";
 
 export default function SwapInterface() {
   const [fromToken, setFromToken] = useState("ETH");
@@ -89,7 +90,7 @@ export default function SwapInterface() {
       
       <button
         className={`w-full py-3 rounded-xl font-bold ${
-          isConnected ? 'bg-pink-500 hover:bg-pink-600' : 'bg-gray-600'
+          isConnected ? 'g-gradient-to-r from-emerald-600 to-green-500' : 'bg-gray-600'
         } transition`}
         disabled={!isConnected}
       >
