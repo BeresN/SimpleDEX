@@ -87,12 +87,12 @@ contract LiquidityPool is ERC20 {
         uint256 lpTotalSupply = totalSupply();
         require(lpTokensAmount > 0, "Amount must be greater than zero");
 
-        _burn(msg.sender, lpTokensAmount);
-
         amountA = (lpTokensAmount * reserveA) / lpTotalSupply;
         amountB = (lpTokensAmount * reserveB) / lpTotalSupply;
 
         require(amountA > 0 && amountB > 0, "Insufficient liquidity");
+
+        _burn(msg.sender, lpTokensAmount);
 
         reserveA -= amountA;
         reserveB -= amountB;
