@@ -29,7 +29,8 @@ contract Pair is ERC20, ReentrancyGuard {
         address indexed sender,
         uint256 amountA,
         uint256 amountB,
-        uint256 tokenOut,
+        uint256 amountAOut,
+        uint256 amountBOut,
         address indexed to
     );
 
@@ -84,13 +85,13 @@ contract Pair is ERC20, ReentrancyGuard {
         uint128 _reserveA = reserveA;
         uint128 _reserveB = reserveB;
 
-        require(
-            amountA <= type(uint128).max && amountB <= type(uint128).max,
-            "Overflow during cast"
-        ); // Example safety check
+        // Example safety check
         amountA = (lpTokensAmount * _reserveA) / lpTotalSupply;
         amountB = (lpTokensAmount * _reserveB) / lpTotalSupply;
-
+        require(
+            amountA <= type(uint128).max && amountB <= type(uint128).max,
+            "Overflow"
+        );
         _burn(msg.sender, lpTokensAmount);
 
         _reserveA -= uint128(amountA);
@@ -108,43 +109,53 @@ contract Pair is ERC20, ReentrancyGuard {
         uint256 inputAmount,
         uint256 inputReserve,
         uint256 outputReserve
-    ) public pure returns (uint256) {
+    ) public pure returns (uint256 amountOut) {
         require(
             inputReserve > 0 && outputReserve > 0,
             "Reserves must be greater than 0"
         );
 
-        uint256 inputAmountWithFee = (inputAmount * 99) / 100;
+        uint256 amountWithFee = inputAmount * 999;
 
-        uint256 numerator = inputAmountWithFee * outputReserve;
-        uint256 denominator = (inputReserve * 100) + inputAmountWithFee;
+        uint256 numerator = (amountWithFee * outputReserve);
+        uint256 denominator = ((inputReserve * 1000) + amountWithFee);
 
         require(numerator / denominator > 0, "Zero output amount");
-        return numerator / denominator;
+        amountOut = numerator / denominator;
+        return amountOut;
     }
 
     function swap(
         uint128 amountA,
         uint128 amountB,
         address to
-    ) external nonReentrant returns (uint256 tokenOut) {
+    ) external nonReentrant {
         require(amountA > 0 || amountB > 0);
         require(to != address(0));
-        require(amountA < reserveA || amountB < reserveB);
+
         uint128 _reserveA = reserveA;
         uint128 _reserveB = reserveB;
+        require(amountA < reserveA || amountB < reserveB);
+        uint256 amountAOut;
+        uint256 amountBOut;
 
         if (amountA > 0) {
-            tokenOut = IncludeSwapFee(amountA, _reserveA, _reserveB);
-            updateReserves(_reserveA -= amountA, _reserveB += amountA);
-            IERC20(tokenA).safeTransfer(to, tokenOut);
+            amountAOut = IncludeSwapFee(amountA, _reserveA, _reserveB);
+            updateReserves(
+                _reserveA -= amountA,
+                _reserveB += uint128(amountAOut)
+            );
+            IERC20(tokenA).safeTransfer(to, amountAOut);
         }
         if (amountB > 0) {
-            tokenOut = IncludeSwapFee(amountA, _reserveA, reserveB);
-            updateReserves(_reserveB -= amountB, _reserveA += amountB);
-            IERC20(tokenB).safeTransfer(to, tokenOut);
+            amountBOut = IncludeSwapFee(amountB, _reserveA, reserveB);
+            updateReserves(
+                _reserveB -= amountB,
+                _reserveA += uint128(amountBOut)
+            );
+            IERC20(tokenB).safeTransfer(to, amountBOut);
         }
 
-        emit Swap(msg.sender, amountA, amountB, tokenOut, to);
+        emit Swap(msg.sender, amountA, amountB, amountAOut, amountBOut, to);
     }
 }
