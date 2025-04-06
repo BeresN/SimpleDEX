@@ -126,36 +126,45 @@ contract Pair is ERC20, ReentrancyGuard {
     }
 
     function swap(
-        uint128 amountA,
-        uint128 amountB,
+        uint128 amountAOut,
+        uint128 amountBOut,
         address to
     ) external nonReentrant {
-        require(amountA > 0 || amountB > 0);
+        require(amountAOut > 0 || amountBOut > 0);
         require(to != address(0));
 
         uint128 _reserveA = reserveA;
         uint128 _reserveB = reserveB;
-        require(amountA < reserveA || amountB < reserveB);
-        uint256 amountAOut;
-        uint256 amountBOut;
+        require(amountAOut < _reserveA && amountBOut < _reserveB);
+        require(to != address(this), "Swap: INVALID_TO");
 
-        if (amountA > 0) {
-            amountAOut = IncludeSwapFee(amountA, _reserveA, _reserveB);
-            updateReserves(
-                _reserveA -= amountA,
-                _reserveB += uint128(amountAOut)
-            );
+        if (amountAOut > 0) {
             IERC20(tokenA).safeTransfer(to, amountAOut);
         }
-        if (amountB > 0) {
-            amountBOut = IncludeSwapFee(amountB, _reserveA, reserveB);
-            updateReserves(
-                _reserveB -= amountB,
-                _reserveA += uint128(amountBOut)
-            );
+        if (amountBOut > 0) {
             IERC20(tokenB).safeTransfer(to, amountBOut);
         }
 
-        emit Swap(msg.sender, amountA, amountB, amountAOut, amountBOut, to);
+        uint256 balanceA = IERC20(tokenA).balanceOf(address(this));
+        uint256 balanceB = IERC20(tokenB).balanceOf(address(this));
+
+        uint256 amountAIn = balanceA > _reserveA - amountAOut
+            ? balanceA - (_reserveA - amountAOut)
+            : 0;
+        uint256 amountBIn = balanceB > _reserveB - amountBOut
+            ? balanceB - (_reserveB - amountBOut)
+            : 0;
+        require(
+            amountAIn > 0 || amountBIn > 0,
+            "Swap: INSUFFICIENT_INPUT_AMOUNT"
+        );
+
+        uint256 balanceAWithFee = IncludeSwapFee(
+            amountAIn,
+            _reserveA,
+            amountAOut
+        );
+
+        emit Swap(msg.sender, amountAIn, amountBIn, amountAOut, amountBOut, to);
     }
 }
