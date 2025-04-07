@@ -10,8 +10,8 @@ contract Pair is ERC20, ReentrancyGuard {
     using SafeERC20 for IERC20;
     IERC20 public immutable tokenA;
     IERC20 public immutable tokenB;
-    uint128 public reserveA;
-    uint128 public reserveB;
+    uint256 public reserveA;
+    uint256 public reserveB;
 
     event liquidityAdded(
         address indexed user,
@@ -43,10 +43,10 @@ contract Pair is ERC20, ReentrancyGuard {
         tokenB = IERC20(_tokenB);
     }
 
-    function getReserves() public view returns (uint128, uint128) {
+    function getReserves() public view returns (uint256, uint256) {
         return (reserveA, reserveB);
     }
-    function updateReserves(uint128 _reserveA, uint128 _reserveB) private {
+    function updateReserves(uint256 _reserveA, uint256 _reserveB) private {
         reserveA = _reserveA;
         reserveB = _reserveB;
     }
@@ -82,8 +82,8 @@ contract Pair is ERC20, ReentrancyGuard {
     ) external nonReentrant returns (uint256 amountA, uint256 amountB) {
         require(lpTokensAmount > 0);
         uint256 lpTotalSupply = totalSupply();
-        uint128 _reserveA = reserveA;
-        uint128 _reserveB = reserveB;
+        uint256 _reserveA = reserveA;
+        uint256 _reserveB = reserveB;
 
         // Example safety check
         amountA = (lpTokensAmount * _reserveA) / lpTotalSupply;
@@ -105,26 +105,6 @@ contract Pair is ERC20, ReentrancyGuard {
         emit LiquidityRemoved(msg.sender, amountA, amountB, lpTokensAmount);
     }
 
-    function IncludeSwapFee(
-        uint256 inputAmount,
-        uint256 inputReserve,
-        uint256 outputReserve
-    ) public pure returns (uint256 amountOut) {
-        require(
-            inputReserve > 0 && outputReserve > 0,
-            "Reserves must be greater than 0"
-        );
-
-        uint256 amountWithFee = inputAmount * 999;
-
-        uint256 numerator = (amountWithFee * outputReserve);
-        uint256 denominator = ((inputReserve * 1000) + amountWithFee);
-
-        require(numerator / denominator > 0, "Zero output amount");
-        amountOut = numerator / denominator;
-        return amountOut;
-    }
-
     function swap(
         uint128 amountAOut,
         uint128 amountBOut,
@@ -133,8 +113,8 @@ contract Pair is ERC20, ReentrancyGuard {
         require(amountAOut > 0 || amountBOut > 0);
         require(to != address(0));
 
-        uint128 _reserveA = reserveA;
-        uint128 _reserveB = reserveB;
+        uint256 _reserveA = reserveA;
+        uint256 _reserveB = reserveB;
         require(amountAOut < _reserveA && amountBOut < _reserveB);
         require(to != address(this), "Swap: INVALID_TO");
 
@@ -159,11 +139,14 @@ contract Pair is ERC20, ReentrancyGuard {
             "Swap: INSUFFICIENT_INPUT_AMOUNT"
         );
 
-        uint256 balanceAWithFee = IncludeSwapFee(
-            amountAIn,
-            _reserveA,
-            amountAOut
+        uint256 balanceAWithFee = (balanceA * 1000) - (amountAIn * 1);
+        uint256 balanceBWithFee = (balanceA * 1000) - (amountBIn * 1);
+        require(
+            balanceAWithFee * balanceBWithFee >=
+                _reserveA * _reserveB * (1000 ** 2),
+            "Swap: K_INVARIANT_FAILED"
         );
+        updateReserves(balanceAWithFee, balanceBWithFee);
 
         emit Swap(msg.sender, amountAIn, amountBIn, amountAOut, amountBOut, to);
     }
