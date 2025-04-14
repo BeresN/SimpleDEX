@@ -5,8 +5,8 @@ import { useAccount, useBalance } from 'wagmi';
 import "tailwindcss";
 
 export default function SwapInterface() {
-  const [fromToken, setFromToken] = useState("ETH");
-  const [toToken, setToToken] = useState("USDC");
+  const [fromToken, setFromToken] = useState("sETH");
+  const [toToken, setToToken] = useState("SEI");
   const [fromAmount, setFromAmount] = useState("");
   const [toAmount, setToAmount] = useState("");
   const { address, isConnected } = useAccount();
@@ -30,15 +30,15 @@ export default function SwapInterface() {
   };
 
   return (
-    <div className="bg-gray-800 rounded-xl p-4 max-w-md mx-auto mt-8 text-white justify-center">
+    <div className="bg-gray-900 rounded-xl p-4 max-w-md mx-auto mt-8 text-white justify-center">
       <div className="mb-4">
+        {isConnected && <span>Balance: {balance?.formatted || "0.000"} {fromToken}</span>}
         <div className="mb-2">
-          <span>From</span>
-          {isConnected && <span>Balance: {balance?.formatted || "0"} {fromToken}</span>}
+          <span>Sell </span>
         </div>
-        <div className="bg-gray-900 p-3 rounded-xl flex justify-between self-center">
+        <div className="bg-gray-800 p-3 rounded-xl flex justify-between self-center">
           <input
-            type="number"
+            type="text"
             value={fromAmount}
             onChange={handleFromAmountChange}
             placeholder="0.0"
@@ -46,31 +46,23 @@ export default function SwapInterface() {
           />
           <select
             value={fromToken}
-            onChange={(e) => setFromToken(e.target.value)}
+            onChange={(e) => handleSwapTokens(e.target.value)}
             className="bg-gray-700 rounded-xl p-2"
           >
-            <option value="ETH">ETH</option>
+            <option value="ETH">sETH</option>
             <option value="SEI">SEI</option>
             
           </select>
         </div>
       </div>
       
-      <div className="flex justify-center my-2">
-        <button
-          onClick={handleSwapTokens}
-          className="bg-gray-700 p-2 rounded-full hover:bg-gray-600 transition"
-        >
-        </button>
-      </div>
-      
       <div className="mb-4">
         <div className="mb-2">
-          <span>To</span>
+          <span>Buy</span>
         </div>
-        <div className="bg-gray-900 p-3 rounded-xl flex justify-between">
+        <div className="bg-gray-800 p-3 rounded-xl flex justify-between">
           <input
-            type="number"
+            type="text"
             value={toAmount}
             readOnly
             placeholder="0.0"
@@ -78,10 +70,10 @@ export default function SwapInterface() {
           />
           <select
             value={toToken}
-            onChange={(e) => setToToken(e.target.value)}
+            onChange={(e) => handleSwapTokens(e.target.value)}
             className="bg-gray-700 rounded-xl p-2"
           >
-            <option value="ETH">ETH</option>
+            <option value="ETH">sETH</option>
             <option value="SEI">SEI</option>
             
           </select>

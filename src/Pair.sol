@@ -124,7 +124,6 @@ contract Pair is ERC20, ReentrancyGuard {
         if (amountBOut > 0) {
             IERC20(tokenB).safeTransfer(to, amountBOut);
         }
-
         uint256 balanceA = IERC20(tokenA).balanceOf(address(this));
         uint256 balanceB = IERC20(tokenB).balanceOf(address(this));
 
@@ -140,7 +139,7 @@ contract Pair is ERC20, ReentrancyGuard {
         );
 
         uint256 balanceAWithFee = (balanceA * 1000) - (amountAIn * 1);
-        uint256 balanceBWithFee = (balanceA * 1000) - (amountBIn * 1);
+        uint256 balanceBWithFee = (balanceB * 1000) - (amountBIn * 1);
         require(
             balanceAWithFee * balanceBWithFee >=
                 _reserveA * _reserveB * (1000 ** 2),

@@ -172,6 +172,8 @@ contract PairSwapTest is Test {
     function test_SwapBForA_HappyPath() public {
         uint128 amountAOut_desired = 10 ether; // Request 10 Token A out
         (uint256 reserveA_before, uint256 reserveB_before) = pair.getReserves();
+        console.log("reserve A before: ", reserveA_before);
+        console.log("reserve B before: ", reserveB_before);
 
         // Calculate required input B for desired output A (using 0.1% fee math)
         uint256 requiredAmountBIn = getAmountIn(
@@ -183,7 +185,7 @@ contract PairSwapTest is Test {
             requiredAmountBIn <= SWAPPER_INITIAL_BALANCE,
             "Swapper insufficient balance for test"
         );
-
+        console.log("token b balance: ", requiredAmountBIn);
         // 1. Swapper sends required Token B to Pair contract first
         vm.startPrank(swapper);
         tokenB.transfer(address(pair), requiredAmountBIn);

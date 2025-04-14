@@ -1,6 +1,7 @@
 import Navbar from './components/Navbar';
 
 import './style.css';
+import "tailwindcss";
 
 export default function Home() {
   return (
