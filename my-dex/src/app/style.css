@@ -157,42 +157,6 @@ select {
 }
 
 /* Buttons */
-button.bg-gray-700 {
-  background-color: var(--bg-lighter);
-  width: 32px;
-  height: 32px;
-
-  transform: rotate(90deg);
-}
-
-button.bg-gray-700::after {
-  content: '↓';
-  color: var(--text);
-  font-size: 18px;
-}
-
-button.bg-gray-700:hover {
-  background-color: var(--bg-light);
-}
-
-button.w-full {
-  background: linear-gradient(to right, var(--primary), #94f876);
-  border-radius: 16px;
-  font-weight: 600;
-  padding: 1rem;
-  transition: var(--transition);
-}
-
-button.w-full:hover:not(:disabled) {
-  opacity: 0.9;
-  transform: translateY(-1px);
-}
-
-button.w-full:disabled {
-  background: var(--bg-lighter);
-  opacity: 0.6;
-  cursor: not-allowed;
-}
 
 
 /* Token balance display */

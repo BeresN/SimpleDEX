@@ -10,9 +10,9 @@ import "tailwindcss";
 const LIQUIDITY_POOL_ADDRESS = '0x...'; // Your Liquidity Pool Contract Address
 const TOKEN_A_ADDRESS = '0x...';        // Your Token A Address
 const TOKEN_B_ADDRESS = '0x...';        // Your Token B Address
-const TOKEN_A_SYMBOL = 'TKA';           // Symbol for Token A
-const TOKEN_B_SYMBOL = 'TKB';           // Symbol for Token B
-const LP_TOKEN_SYMBOL = 'LP';           // Symbol for LP Token
+const TOKEN_A_SYMBOL = 'sETH';           // Symbol for Token A
+const TOKEN_B_SYMBOL = 'SEI';           // Symbol for Token B
+const LP_TOKEN_SYMBOL = 'LPTK';           // Symbol for LP Token
 // --- END CONFIGURATION ---
 
 const InputField = ({ label, value, onChange, placeholder, balance, symbol, onMaxClick, disabled }) => (
@@ -50,7 +50,7 @@ const InputField = ({ label, value, onChange, placeholder, balance, symbol, onMa
 );
 
 export default function LiquidityInterface() {
-  const [viewMode, setViewMode] = useState('add'); // 'add' or 'remove'
+  const [viewMode, setViewMode] = useState('add'); 
   const [amountA, setAmountA] = useState('');
   const [amountB, setAmountB] = useState('');
   const [lpAmount, setLpAmount] = useState('');
@@ -76,13 +76,12 @@ export default function LiquidityInterface() {
     enabled: isConnected,
   });
 
-  // Prepare Contract Write Hooks
+  // Contract Write Hooks
   const { data: approveAData, writeContractAsync: approveATx, isPending: isApprovingA, error: approveAError } = useWriteContract();
   const { data: approveBData, writeContractAsync: approveBTx, isPending: isApprovingB, error: approveBError } = useWriteContract();
   const { data: addLiqData, writeContractAsync: addLiquidityTx, isPending: isAddingLiquidity, error: addLiqError } = useWriteContract();
   const { data: remLiqData, writeContractAsync: removeLiquidityTx, isPending: isRemovingLiquidity, error: remLiqError } = useWriteContract();
 
-   // --- Approval Transaction Monitoring ---
    // Monitor approval A tx receipt
    const { isLoading: isConfirmingApproveA, isSuccess: isSuccessApproveA } = useWaitForTransactionReceipt({ hash: approveAData?.hash });
    // Monitor approval B tx receipt
@@ -98,7 +97,7 @@ export default function LiquidityInterface() {
    }, [isSuccessApproveB, refetchAllowanceB]);
 
 
-  // --- Derived State & Logic ---
+  // State & Logic
   const needsApprovalA = () => {
     if (!isConnected || !amountA || !balanceA || !allowanceA) return false;
     try {
@@ -117,7 +116,7 @@ export default function LiquidityInterface() {
   const isApprovalPending = isApprovingA || isConfirmingApproveA || isApprovingB || isConfirmingApproveB;
   const isProcessing = isApprovalPending || isAddingLiquidity || isRemovingLiquidity;
 
-  // --- Input Handlers ---
+
   const handleAmountChange = (setter) => (e) => {
     const value = e.target.value;
     if (/^\d*\.?\d*$/.test(value)) {
@@ -125,7 +124,7 @@ export default function LiquidityInterface() {
     }
   };
 
-  // --- Action Handlers ---
+
   const handleApprove = async (tokenAddress, approveTxFn) => {
     if (!isConnected) return;
     try {
@@ -275,34 +274,47 @@ export default function LiquidityInterface() {
 
   return (
     <div className="bg-gray-800 rounded-2xl p-4 sm:p-5 max-w-md mx-auto mt-8 text-white border border-gray-700 shadow-lg">
+      {/* Container for the header elements (ConnectButton on right) */}
+      {/* Container for the header elements */}
       <div className="flex justify-between items-center mb-5">
-        <div className="flex border border-gray-700 rounded-lg">
+
+        {/* Container for the vertically stacked view-switching buttons */}
+        {/* --- TRY THIS VERSION --- */}
+        {/* Using flex flex-col explicitly ensures vertical stacking */}
+        <div className="flex flex-col space-y-2"> {/* ADDED flex and flex-col */}
            <button
               onClick={() => setViewMode('add')}
-              className={`px-4 py-2 rounded-l-lg text-sm font-medium ${viewMode === 'add' ? 'bg-emerald-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+              // Ensure standard rounding (rounded-lg, not rounded-l-lg)
+              className={`px-4 py-2 rounded-lg text-sm font-medium ${viewMode === 'add' ? 'bg-emerald-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
               disabled={isProcessing}
            >
               Add Liquidity
            </button>
            <button
               onClick={() => setViewMode('remove')}
-              className={`px-4 py-2 rounded-r-lg text-sm font-medium ${viewMode === 'remove' ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+              // Ensure standard rounding (rounded-lg, not rounded-r-lg)
+              className={`px-4 py-2 rounded-lg text-sm font-medium ${viewMode === 'remove' ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
               disabled={isProcessing}
             >
               Remove Liquidity
             </button>
         </div>
+        {/* --- END OF VERSION TO TRY --- */}
+
+
+        {/* ConnectButton remains unchanged */}
         <ConnectButton showBalance={false} chainStatus="icon" accountStatus="address" />
       </div>
 
+      {/* --- This conditional rendering logic remains exactly the same --- */}
       {!isConnected ? (
         <div className="text-center text-gray-400 py-8">Please connect your wallet.</div>
       ) : viewMode === 'add' ? (
-        renderAddLiquidity()
+        renderAddLiquidity() // Make sure this function is defined
       ) : (
-        renderRemoveLiquidity()
+        renderRemoveLiquidity() // Make sure this function is defined
       )}
-
+      {/* --- End of unchanged logic --- */}
       {/* Transaction Feedback Area */}
        {isProcessing && <div className="mt-4 text-center text-sm text-yellow-400">Processing Transaction... Check Wallet</div>}
        {addLiqData && <TxFeedback hash={addLiqData.hash} successMessage="Liquidity Added!" />}

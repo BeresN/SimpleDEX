@@ -30,13 +30,13 @@ export default function SwapInterface() {
   };
 
   return (
-    <div className="bg-gray-900 rounded-xl p-4 max-w-md mx-auto mt-8 text-white justify-center">
+    <div className="bg-gray-800 rounded-xl p-4 max-w-md mx-auto mt-8 text-white justify-center">
       <div className="mb-4">
         {isConnected && <span>Balance: {balance?.formatted || "0.000"} {fromToken}</span>}
         <div className="mb-2">
           <span>Sell </span>
         </div>
-        <div className="bg-gray-800 p-3 rounded-xl flex justify-between self-center">
+        <div className="bg-gray-900 p-3 rounded-xl flex justify-between self-center">
           <input
             type="text"
             value={fromAmount}
@@ -60,7 +60,7 @@ export default function SwapInterface() {
         <div className="mb-2">
           <span>Buy</span>
         </div>
-        <div className="bg-gray-800 p-3 rounded-xl flex justify-between">
+        <div className="bg-gray-900 p-3 rounded-xl flex justify-between">
           <input
             type="text"
             value={toAmount}
