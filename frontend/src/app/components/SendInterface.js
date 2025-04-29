@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { useAccount, useBalance } from 'wagmi';
+import { useAccount, useBalance, useReadContract, useWriteContract, } from 'wagmi';
 import { isAddress, erc20Abi } from 'viem';
 import "tailwindcss";
 
@@ -17,7 +17,7 @@ export default function SendInterface() {
     const { address, isConnected } = useAccount();
     const { data: balance, isLoading: isLoadingBalance} = useBalance({
       address,
-      token: tokenToSend === "ETH" ? undefined : TOKEN_ADDRESSES[tokenToSend],
+      token: tokenToSend === "sETH" ? undefined : TOKEN_ADDRESSES[ETH],
       watch: true, // Optional: refreshes balance on network changes
     });
 
@@ -61,7 +61,7 @@ export default function SendInterface() {
 
         <div className="bg-gray-800 text-white p-4 max-w-md mx-auto rounded-xl">
           {isConnected && <span>Balance: {isLoadingBalance ? '...' : balance?.formatted ?? '0.0'} {tokenToSend}</span>}
-          <div className="text-center text-gray-400 mb-2 text-sm">You send</div>
+          <div className="text-center text-gray-400 mb-2 text-sm">You are sending</div>
           <div className="bg-gray-900 p-3 rounded-xl flex justify-between mb-4 self-center">
               <input
               type="text"
