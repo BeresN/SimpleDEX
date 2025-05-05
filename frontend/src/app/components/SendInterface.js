@@ -6,22 +6,20 @@ import {
   useReadContract,
   useWriteContract,
 } from "wagmi";
-import { isAddress, erc20Abi } from "viem";
+import { isAddress, erc20Abi, parseEther } from "viem";
 import "tailwindcss";
 
 const TOKEN_A_ADDRESS = "0x558f6e1BFfD83AD9F016865bF98D6763566d49c6";
 const TOKEN_B_ADDRESS = "0x4DF4493209006683e678983E1Ec097680AB45e13";
-const SEND_ADDRESS = "0x128dcb97c60033fC091440aA4EBB0F20A8034889";
 const TOKEN_A_SYMBOL = "mETH";
 const TOKEN_B_SYMBOL = "mSEI";
 
 export default function SendInterface() {
   const [fromToken, setTokenToSend] = useState(TOKEN_A_SYMBOL);
-  const [toToken, setToToken] = useState(TOKEN_B_SYMBOL);
   const [sendAmount, setSendAmount] = useState("");
-  const [isRecipientValid, setIsRecipientValid] = useState(false); // State for validity
-  const [recipientTouched, setRecipientTouched] = useState(false); // Optional: track if user interacted
-  const [recipientAddress, setRecipientAddress] = useState(""); // Assuming you have this state elsewhere
+  const [isRecipientValid, setIsRecipientValid] = useState(false);
+  const [recipientTouched, setRecipientTouched] = useState(false);
+  const [recipientAddress, setRecipientAddress] = useState("");
   const { address, isConnected } = useAccount();
 
   const { data: balanceA, isLoading: isLoadingBalanceA } = useBalance({
@@ -35,20 +33,17 @@ export default function SendInterface() {
     token: TOKEN_B_ADDRESS,
     watch: true,
   });
-
-  const fromTokenAddress =
+  const tokenBalance = fromToken === TOKEN_A_SYMBOL ? balanceA : balanceB;
+  const tokenAddress =
     fromToken === TOKEN_A_SYMBOL ? TOKEN_A_ADDRESS : TOKEN_B_ADDRESS;
-  const fromTokenBalance = fromToken === TOKEN_A_SYMBOL ? balanceA : balanceB;
 
   const handleTokenChange = (newTokenSymbol) => {
     setTokenToSend(newTokenSymbol);
-    // Optional: Reset amount when token changes to avoid confusion
     setSendAmount("");
   };
 
   const handleAmountChange = (e) => {
     const value = e.target.value;
-    // Basic validation: allow only numbers and one decimal point
     if (/^\d*\.?\d*$/.test(value)) {
       setSendAmount(value);
     }
@@ -59,7 +54,6 @@ export default function SendInterface() {
     setRecipientAddress(value);
     setRecipientTouched(true);
 
-    // Validate using viem's isAddress
     if (value && isAddress(value)) {
       setIsRecipientValid(true);
     } else {
@@ -67,25 +61,30 @@ export default function SendInterface() {
     }
   };
 
+  const { writeContractAsync, isPending, isSuccess, isError, error } =
+    useWriteContract();
+
   const handleSend = () => {
-    if (!isConnected)
-      try {
-        addLiquidityTx({
-          address: LIQUIDITY_POOL_ADDRESS,
-          abi: erc20Abi,
-          functionName: "send",
-          args: [address, sendAmount],
-        });
-      } catch (err) {}
+    console.log("token a balance: ", balanceA);
+    console.log("token b balance: ", balanceB);
+
+    try {
+      writeContractAsync({
+        address: tokenAddress,
+        abi: erc20Abi,
+        functionName: "transfer",
+        args: [recipientAddress, parseEther(sendAmount)],
+      });
+    } catch (err) {
+      console.log("transfer failed: ", err);
+    }
   };
 
   return (
     <div className="bg-gray-800 rounded-xl p-4 max-w-md mx-auto mt-8 text-white justify-center">
       <div className="bg-gray-800 text-white p-4 max-w-md mx-auto rounded-xl">
         {isConnected && (
-          <span>
-            Balance: {fromTokenBalance ? fromTokenBalance.formatted : "0.00"}
-          </span>
+          <span>Balance: {tokenBalance ? tokenBalance.formatted : "0.00"}</span>
         )}
         <div className="text-center text-gray-400 mb-2 text-sm">
           You are sending
@@ -121,11 +120,7 @@ export default function SendInterface() {
                 ? "border-red-500 focus:border-red-500 focus:ring-red-500" // Invalid style
                 : "border-gray-900 focus:border-emerald-500 focus:ring-emerald-500" // Default/valid style
             } rounded-lg p-2 text-center text-base font-mono transition-colors duration-150 outline-none focus:ring-1`} // Added focus styles, mono font
-            aria-invalid={
-              recipientTouched && !isRecipientValid && !!recipientAddress
-            } // Accessibility
           />
-          {/* Optional: Show error message */}
           {recipientTouched && !isRecipientValid && recipientAddress && (
             <p className="text-red-500 text-xs text-center mt-1">
               Please enter a valid Ethereum address.
@@ -133,6 +128,16 @@ export default function SendInterface() {
           )}
         </div>
       </div>
+      {isSuccess && (
+        <div className="bg-green-900/50 border border-green-500 text-green-200 p-2 rounded-lg mb-4 text-sm text-center">
+          Transfer successful!
+        </div>
+      )}
+      {isError && (
+        <div className="border-red-500 focus:border-red-500 focus:ring-red-500">
+          Transfer Failed!
+        </div>
+      )}
 
       <button
         onClick={handleSend}
@@ -143,17 +148,18 @@ export default function SendInterface() {
             : "bg-gray-900 text-gray-500 cursor-not-allowed" // Updated disabled style
         } transition duration-200 ease-in-out`}
         // Update disabled check
-        disabled={!isConnected || !sendAmount || !isRecipientValid}
+        disabled={!isConnected || !sendAmount || !isRecipientValid || isPending}
       >
         {!isConnected
           ? "Connect Wallet"
           : !sendAmount
           ? "Enter an amount"
-          : !recipientAddress // Keep check for empty input first
+          : !recipientAddress
           ? "Enter recipient"
-          : !isRecipientValid // Add check for validity
+          : !isRecipientValid
           ? "Invalid Address"
           : "Send"}
+        {isPending ? "Pending transaction" : isRecipientValid}
       </button>
     </div>
   );
