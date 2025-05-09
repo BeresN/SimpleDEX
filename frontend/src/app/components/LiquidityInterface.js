@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   useAccount,
   useBalance,
@@ -8,18 +8,22 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
 } from "wagmi";
-import { parseUnits, formatUnits, MaxUint256, erc20Abi } from "viem";
+import { parseUnits, parseEther, erc20Abi } from "viem";
+
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import "tailwindcss";
 import liquidityPoolAbi from "../../../abis/liquidityPoolAbi.json";
+import LoadingSpinner from "../utils/LoadingSpinner.js";
 
-const LIQUIDITY_POOL_ADDRESS = "0x128dcb97c60033fC091440aA4EBB0F20A8034889";
+const LIQUIDITY_POOL_ADDRESS = "0xBAD4F032cC2Fd09b0C71B2D3336dD4A6beF724a7";
 const TOKEN_A_ADDRESS = "0x558f6e1BFfD83AD9F016865bF98D6763566d49c6";
 const TOKEN_B_ADDRESS = "0x4DF4493209006683e678983E1Ec097680AB45e13";
 const TOKEN_A_SYMBOL = "mETH";
 const TOKEN_B_SYMBOL = "mSEI";
 const LP_TOKEN_SYMBOL = "LPTK";
-
+const MaxUint256 = BigInt(
+  "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+);
 const InputField = ({
   label,
   value,
@@ -68,7 +72,6 @@ export default function LiquidityInterface() {
   const [amountA, setAmountA] = useState("");
   const [amountB, setAmountB] = useState("");
   const [lpAmount, setLpAmount] = useState("");
-
   const { address, isConnected } = useAccount();
 
   // --- Wagmi Hooks ---
@@ -86,7 +89,7 @@ export default function LiquidityInterface() {
     address,
     token: LIQUIDITY_POOL_ADDRESS,
     watch: true,
-  }); // LP token IS the pool contract
+  });
 
   // Read Allowances
   const { data: allowanceA, refetch: refetchAllowanceA } = useReadContract({
@@ -130,47 +133,11 @@ export default function LiquidityInterface() {
     error: remLiqError,
   } = useWriteContract();
 
-  // Monitor approval A tx receipt
+  // Monitor approval tx receipt
   const { isLoading: isConfirmingApproveA, isSuccess: isSuccessApproveA } =
     useWaitForTransactionReceipt({ hash: approveAData?.hash });
-  // Monitor approval B tx receipt
   const { isLoading: isConfirmingApproveB, isSuccess: isSuccessApproveB } =
     useWaitForTransactionReceipt({ hash: approveBData?.hash });
-
-  // Refetch allowances after successful approval confirmations
-  useEffect(() => {
-    if (isSuccessApproveA) {
-      console.log("Approval A successful, waiting to refetch allowance...");
-      setTimeout(() => refetchAllowanceA(), 2000); // Delay to ensure blockchain state updates
-    }
-  }, [isSuccessApproveA, refetchAllowanceA]);
-
-  useEffect(() => {
-    if (isSuccessApproveB) {
-      console.log("Approval B successful, waiting to refetch allowance...");
-      setTimeout(() => refetchAllowanceB(), 2000); // Delay to ensure blockchain state updates
-    }
-  }, [isSuccessApproveB, refetchAllowanceB]);
-
-  // State & Logic
-  const needsApprovalA = () => {
-    if (!isConnected || !amountA || !balanceA || !allowanceA) return false;
-    try {
-      const amountAWei = parseUnits(amountA, balanceA.decimals);
-      return allowanceA < amountAWei;
-    } catch {
-      return false;
-    } // Handle invalid input format
-  };
-  const needsApprovalB = () => {
-    if (!isConnected || !amountB || !balanceB || !allowanceB) return false;
-    try {
-      const amountBWei = parseUnits(amountB, balanceB.decimals);
-      return allowanceB < amountBWei;
-    } catch {
-      return false;
-    } // Handle invalid input format
-  };
 
   const isApprovalPending =
     isApprovingA ||
@@ -187,55 +154,53 @@ export default function LiquidityInterface() {
     }
   };
 
-  const handleApprove = async (tokenAddress, approveTxFn) => {
-    if (!isConnected) return;
-    try {
-      await approveTxFn({
-        address: tokenAddress,
-        abi: erc20Abi,
-        functionName: "approve",
-        args: [LIQUIDITY_POOL_ADDRESS, MaxUint256], // Approve MAX
-      });
-      // No need to refetch here, useEffect handles it after confirmation
-    } catch (err) {
-      console.error("Approval failed:", err);
-      // Show error to user
-    }
-  };
+  const handleAddLiquidityWithApprove = async () => {
+    if (!isConnected || !amountA || !amountB || !balanceA || !balanceB) return;
 
-  const handleAddLiquidity = async () => {
-    if (
-      !isConnected ||
-      !amountA ||
-      !amountB ||
-      !balanceA ||
-      !balanceB ||
-      needsApprovalA() ||
-      needsApprovalB()
-    )
-      return;
     try {
       const amountAWei = parseUnits(amountA, balanceA.decimals);
       const amountBWei = parseUnits(amountB, balanceB.decimals);
 
-      // Basic balance check (more robust checks recommended)
-      if (amountAWei > balanceA.value || amountBWei > balanceB.value) {
-        alert("Insufficient balance."); // Use better notifications
-        return;
+      const needApprovalA = allowanceA < amountAWei;
+      const needApprovalB = allowanceB < amountBWei;
+
+      if (needApprovalA) {
+        const tx = await approveATx({
+          address: TOKEN_A_ADDRESS,
+          abi: erc20Abi,
+          functionName: "approve",
+          args: [LIQUIDITY_POOL_ADDRESS, MaxUint256],
+        });
+        console.log(`Waiting for ${TOKEN_A_SYMBOL} approval...`);
+        const receiptA = await waitForTransaction({ hash: tx.hash });
+        console.log(`${TOKEN_A_SYMBOL} approved!`);
       }
 
-      await addLiquidityTx({
-        address: LIQUIDITY_POOL_ADDRESS,
-        abi: liquidityPoolAbi,
-        functionName: "addLiquidity",
-        args: [amountAWei, amountBWei], // Contract expects uint128, viem handles BigInt conversion
-      });
-      // Optionally clear fields on success initiation
-      // setAmountA('');
-      // setAmountB('');
+      if (needApprovalB) {
+        const tx = await approveBTx({
+          address: TOKEN_B_ADDRESS,
+          abi: erc20Abi,
+          functionName: "approve",
+          args: [LIQUIDITY_POOL_ADDRESS, MaxUint256],
+        });
+        console.log(`Waiting for ${TOKEN_B_SYMBOL} approval...`);
+        const receiptA = await waitForTransaction({ hash: tx.hash });
+        console.log(`${TOKEN_B_SYMBOL} approved!`);
+      }
+      if (!needApprovalA && !needApprovalB) {
+        console.log("Adding liquidity...");
+        const tx = await addLiquidityTx({
+          address: LIQUIDITY_POOL_ADDRESS,
+          abi: liquidityPoolAbi,
+          functionName: "addLiquidity",
+          args: [amountAWei, amountBWei],
+        });
+        console.log("Add liquidity transaction sent:", tx.hash);
+        return tx;
+      }
     } catch (err) {
       console.error("Add liquidity failed:", err);
-      // Show error to user
+      alert(`Failed to add liquidity: ${err.message}`);
     }
   };
 
@@ -243,10 +208,10 @@ export default function LiquidityInterface() {
     if (!isConnected || !lpAmount || !balanceLP || parseFloat(lpAmount) <= 0)
       return;
     try {
-      const lpAmountWei = parseUnits(lpAmount, balanceLP.decimals); // Assuming LP token has decimals
+      const lpAmountWei = parseEther(lpAmount, balanceLP.decimals);
 
       if (lpAmountWei > balanceLP.value) {
-        alert("Insufficient LP token balance."); // Use better notifications
+        alert("Insufficient LP token balance.");
         return;
       }
 
@@ -256,11 +221,8 @@ export default function LiquidityInterface() {
         functionName: "removeLiquidity",
         args: [lpAmountWei],
       });
-      // Optionally clear field on success initiation
-      // setLpAmount('');
     } catch (err) {
       console.error("Remove liquidity failed:", err);
-      // Show error to user
     }
   };
 
@@ -286,50 +248,21 @@ export default function LiquidityInterface() {
         disabled={isProcessing || !isConnected}
       />
 
-      {/* Action Buttons */}
       <div className="mt-4 space-y-3">
-        {needsApprovalA() && (
-          <button
-            onClick={() => handleApprove(TOKEN_A_ADDRESS, approveATx)}
-            disabled={isProcessing || !isConnected}
-            className="w-full py-3 rounded-xl font-semibold text-lg bg-blue-600 hover:bg-blue-700 text-white transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center"
-          >
-            {isApprovingA || isConfirmingApproveA ? (
-              <LoadingSpinner />
-            ) : (
-              `Approve ${TOKEN_A_SYMBOL}`
-            )}
-          </button>
-        )}
-        {needsApprovalB() && (
-          <button
-            onClick={() => handleApprove(TOKEN_B_ADDRESS, approveBTx)}
-            disabled={isProcessing || !isConnected}
-            className="w-full py-3 rounded-xl font-semibold text-lg bg-blue-600 hover:bg-blue-700 text-white transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center"
-          >
-            {isApprovingB || isConfirmingApproveB ? (
-              <LoadingSpinner />
-            ) : (
-              `Approve ${TOKEN_B_SYMBOL}`
-            )}
-          </button>
-        )}
-        {!needsApprovalA() && !needsApprovalB() && (
-          <button
-            onClick={handleAddLiquidity}
-            disabled={
-              isProcessing ||
-              !isConnected ||
-              !amountA ||
-              !amountB ||
-              parseFloat(amountA) <= 0 ||
-              parseFloat(amountB) <= 0
-            }
-            className="w-full py-3 rounded-xl font-semibold text-lg bg-emerald-600 hover:bg-emerald-700 text-white transition duration-200 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed flex justify-center items-center"
-          >
-            {isAddingLiquidity ? <LoadingSpinner /> : "Add Liquidity"}
-          </button>
-        )}
+        <button
+          onClick={handleAddLiquidityWithApprove}
+          disabled={
+            isProcessing ||
+            !isConnected ||
+            !amountA ||
+            !amountB ||
+            parseFloat(amountA) <= 0 ||
+            parseFloat(amountB) <= 0
+          }
+          className="w-full py-3 rounded-xl font-semibold text-lg bg-emerald-600 hover:bg-emerald-700 text-white transition duration-200 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed flex justify-center items-center"
+        >
+          {isAddingLiquidity ? <LoadingSpinner /> : "Add Liquidity"}
+        </button>
       </div>
     </>
   );
@@ -422,14 +355,14 @@ export default function LiquidityInterface() {
           successMessage="Liquidity Removed!"
         />
       )}
-      {approveAData && !isSuccessApproveA && (
+      {approveAData && isSuccessApproveA && (
         <TxFeedback
           hash={approveAData.hash}
           successMessage={`${TOKEN_A_SYMBOL} Approved!`}
           pending
         />
       )}
-      {approveBData && !isSuccessApproveB && (
+      {approveBData && isSuccessApproveB && (
         <TxFeedback
           hash={approveBData.hash}
           successMessage={`${TOKEN_B_SYMBOL} Approved!`}
@@ -475,7 +408,7 @@ const TxFeedback = ({ hash, successMessage, pending = false }) => {
         : "Transaction Initiated"}{" "}
       <br />
       <a
-        href={explorerUrl}
+        href={"https://sepolia.etherscan.io/tx/${hash}"}
         target="_blank"
         rel="noopener noreferrer"
         className="underline hover:text-white font-mono"
@@ -484,35 +417,9 @@ const TxFeedback = ({ hash, successMessage, pending = false }) => {
       </a>
       {isLoading && (
         <span className="ml-2">
-          <LoadingSpinner small />
+          <LoadingSpinner />
         </span>
       )}
     </div>
   );
 };
-
-// Simple Loading Spinner
-const LoadingSpinner = ({ small = false }) => (
-  <svg
-    className={`animate-spin ${
-      small ? "h-4 w-4" : "h-5 w-5"
-    } text-white inline-block`}
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    viewBox="0 0 24 24"
-  >
-    <circle
-      className="opacity-25"
-      cx="12"
-      cy="12"
-      r="10"
-      stroke="currentColor"
-      strokeWidth="4"
-    ></circle>
-    <path
-      className="opacity-75"
-      fill="currentColor"
-      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-    ></path>
-  </svg>
-);

@@ -1,10 +1,9 @@
-import './globals.css';
-import { Providers } from './providers';
-import Link from 'next/link';
+import "./globals.css";
+import { Providers } from "./providers";
 
 export const metadata = {
-  title: 'My DEX',
-  description: 'A decentralized exchange like Uniswap',
+  title: "My DEX",
+  description: "A decentralized exchange like Uniswap",
 };
 
 export default function RootLayout({ children }) {

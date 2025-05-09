@@ -15,7 +15,7 @@ import swapAbi from "../../../abis/swapAbi.json";
 
 const TOKEN_A_ADDRESS = "0x558f6e1BFfD83AD9F016865bF98D6763566d49c6";
 const TOKEN_B_ADDRESS = "0x4DF4493209006683e678983E1Ec097680AB45e13";
-const SWAP_CONTRACT_ADDRESS = "0x128dcb97c60033fC091440aA4EBB0F20A8034889";
+const SWAP_CONTRACT_ADDRESS = "0xBAD4F032cC2Fd09b0C71B2D3336dD4A6beF724a7";
 const TOKEN_A_SYMBOL = "mETH";
 const TOKEN_B_SYMBOL = "mSEI";
 
@@ -37,6 +37,12 @@ export default function SwapInterface() {
   const { data: balanceB, isLoading: isLoadingBalanceB } = useBalance({
     address,
     token: TOKEN_B_ADDRESS,
+    watch: true,
+  });
+
+  const { data: balanceLP, isLoading: isLoadingBalanceLP } = useBalance({
+    address,
+    token: SWAP_CONTRACT_ADDRESS,
     watch: true,
   });
 
@@ -75,21 +81,6 @@ export default function SwapInterface() {
   const { isLoading: isConfirmingSwap, isSuccess: isSuccessSwap } =
     useWaitForTransactionReceipt({ hash: swapData?.hash });
 
-  // Add this to check allowance values
-  useEffect(() => {
-    if (allowance && fromAmount && fromTokenBalance) {
-      try {
-        const amountWei = parseUnits(fromAmount, fromTokenBalance.decimals);
-        console.log("Current allowance:", allowance.toString());
-        console.log("Required amount:", amountWei.toString());
-        console.log("Is sufficient:", allowance >= amountWei);
-      } catch (err) {
-        console.error("Error checking allowance:", err);
-      }
-    }
-  }, [allowance, fromAmount, fromTokenBalance]);
-
-  // Check if approval is needed
   const needsApproval = () => {
     if (!isConnected || !fromAmount || !fromTokenBalance || !allowance)
       return false;
@@ -142,6 +133,9 @@ export default function SwapInterface() {
       // Determine which token is being swapped from
       const amountAIn = fromToken === TOKEN_A_SYMBOL ? amountWei : 0n;
       const amountBIn = fromToken === TOKEN_B_SYMBOL ? amountWei : 0n;
+      if (balanceLP < amountAIn) {
+        console.log("insufficient Amount of LP, add liquidity", balanceLP);
+      }
 
       console.log("Swapping with:", {
         amountAIn: amountAIn.toString(),
@@ -155,7 +149,6 @@ export default function SwapInterface() {
         abi: swapAbi,
         functionName: "swap",
         args: [amountAIn, amountBIn, address],
-        gas: 300000, // Adjust as needed
       });
     } catch (err) {
       console.error("Swap failed:", err);
