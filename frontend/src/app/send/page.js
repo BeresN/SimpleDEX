@@ -1,7 +1,6 @@
 import Navbar from "../components/Navbar";
 import SendInterface from "../components/SendInterface";
 import "../style.css";
-import "tailwindcss";
 
 export default function Send() {
   return (

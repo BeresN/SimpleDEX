@@ -1,9 +1,8 @@
 // pages/pool.js
 import Navbar from "../components/Navbar";
 import LiquidityInterface from "../components/LiquidityInterface";
-
-import "../style.css"; // Adjust path as needed
-import "tailwindcss";
+import LiquidityPositions from "../components/LiquidityPositions";
+import "../style.css";
 
 export default function Pool() {
   return (
@@ -14,6 +13,7 @@ export default function Pool() {
           Liquidity Pool
         </h1>
         <LiquidityInterface />
+        <LiquidityPositions />
       </main>
     </div>
   );

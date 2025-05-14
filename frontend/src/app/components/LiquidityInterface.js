@@ -8,14 +8,18 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
 } from "wagmi";
-import { parseUnits, parseEther, erc20Abi } from "viem";
+import { parseUnits, parseEther, erc20Abi, formatUnits } from "viem";
 
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import "tailwindcss";
 import liquidityPoolAbi from "../../../abis/liquidityPoolAbi.json";
+import factoryAbi from "../../../abis/factoryAbi.json";
+
 import LoadingSpinner from "../utils/LoadingSpinner.js";
 
 const LIQUIDITY_POOL_ADDRESS = "0xBAD4F032cC2Fd09b0C71B2D3336dD4A6beF724a7";
+const FACTORY_ADDRESS = "0x64078611768BCb3aBa5f34F6390e57ccA3652BE7";
+
 const TOKEN_A_ADDRESS = "0x558f6e1BFfD83AD9F016865bF98D6763566d49c6";
 const TOKEN_B_ADDRESS = "0x4DF4493209006683e678983E1Ec097680AB45e13";
 const TOKEN_A_SYMBOL = "mETH";
@@ -72,6 +76,8 @@ export default function LiquidityInterface() {
   const [amountA, setAmountA] = useState("");
   const [amountB, setAmountB] = useState("");
   const [lpAmount, setLpAmount] = useState("");
+  const [pairAddress, setPairAddress] = useState(null);
+  const [isPairCreating, setIsPairCreating] = useState(false);
   const { address, isConnected } = useAccount();
 
   // --- Wagmi Hooks ---
@@ -107,6 +113,18 @@ export default function LiquidityInterface() {
     enabled: isConnected,
   });
 
+  const { data: reserve, refetch: refetchReserve } = useReadContract({
+    address: LIQUIDITY_POOL_ADDRESS,
+    functionName: "getReserves",
+    abi: liquidityPoolAbi,
+    enabled: isConnected,
+  });
+  const { data: contractOwner } = useReadContract({
+    address: FACTORY_ADDRESS,
+    abi: factoryAbi,
+    functionName: "owner",
+    enabled: isConnected,
+  });
   // Contract Write Hooks
   const {
     data: approveAData,
@@ -132,6 +150,12 @@ export default function LiquidityInterface() {
     isPending: isRemovingLiquidity,
     error: remLiqError,
   } = useWriteContract();
+  const {
+    data: createPairData,
+    writeContractAsync: createPairTx,
+    isPending: isCreatingPair,
+    error: createPairError,
+  } = useWriteContract();
 
   // Monitor approval tx receipt
   const { isLoading: isConfirmingApproveA, isSuccess: isSuccessApproveA } =
@@ -154,15 +178,66 @@ export default function LiquidityInterface() {
     }
   };
 
+  const checkReserves = async () => {
+    try {
+      const reserves = await refetchReserve();
+      console.log("Current Reserves:", {
+        reserveA: formatUnits(reserves[0], 18),
+        reserveB: formatUnits(reserves[1], 18),
+      });
+      return reserves;
+    } catch (error) {
+      console.error("Error checking reserves:", error);
+    }
+  };
+
+  const createPair = async () => {
+    if (!isConnected) return;
+
+    try {
+      setIsPairCreating(true);
+      console.log(
+        "Creating new pair for tokens:",
+        TOKEN_A_ADDRESS,
+        TOKEN_B_ADDRESS
+      );
+
+      const tx = await createPairTx({
+        address: FACTORY_ADDRESS,
+        abi: factoryAbi,
+        functionName: "CreateNewPair",
+        args: [TOKEN_A_ADDRESS, TOKEN_B_ADDRESS],
+      });
+
+      console.log("Creating pair transaction sent:", tx);
+      return tx;
+    } catch (err) {
+      console.error("Create pair failed:", err);
+      setIsPairCreating(false);
+      alert(`Failed to create pair: ${err.message}`);
+    }
+  };
+
   const handleAddLiquidityWithApprove = async () => {
     if (!isConnected || !amountA || !amountB || !balanceA || !balanceB) return;
 
     try {
+      console.log("Reserves before adding liquidity:");
+      const reservesBefore = await checkReserves();
+      console.log("Owner of the factory contract: ", contractOwner);
+
       const amountAWei = parseUnits(amountA, balanceA.decimals);
       const amountBWei = parseUnits(amountB, balanceB.decimals);
 
+      if (!pairAddress) {
+        console.log("Pair doesn't exist, creating...");
+        await createPair();
+        return;
+      }
+
       const needApprovalA = allowanceA < amountAWei;
       const needApprovalB = allowanceB < amountBWei;
+      console.log("reserve before add liquidity reserve", reserve);
 
       if (needApprovalA) {
         const tx = await approveATx({
@@ -187,17 +262,20 @@ export default function LiquidityInterface() {
         const receiptA = await waitForTransaction({ hash: tx.hash });
         console.log(`${TOKEN_B_SYMBOL} approved!`);
       }
-      if (!needApprovalA && !needApprovalB) {
-        console.log("Adding liquidity...");
-        const tx = await addLiquidityTx({
-          address: LIQUIDITY_POOL_ADDRESS,
-          abi: liquidityPoolAbi,
-          functionName: "addLiquidity",
-          args: [amountAWei, amountBWei],
-        });
-        console.log("Add liquidity transaction sent:", tx.hash);
-        return tx;
-      }
+
+      console.log("Adding liquidity...");
+      const tx = await addLiquidityTx({
+        address: LIQUIDITY_POOL_ADDRESS,
+        abi: liquidityPoolAbi,
+        functionName: "addLiquidity",
+        args: [amountAWei, amountBWei],
+      });
+      console.log("Add liquidity transaction sent:", tx);
+      // Now check reserves AFTER the transaction is confirmed
+      console.log("Checking reserves after adding liquidity...");
+      const reservesAfter = await checkReserves();
+
+      return tx;
     } catch (err) {
       console.error("Add liquidity failed:", err);
       alert(`Failed to add liquidity: ${err.message}`);

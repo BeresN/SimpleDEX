@@ -8,7 +8,7 @@ import {
   useWriteContract,
   useWaitForTransactionReceipt,
 } from "wagmi";
-import { parseUnits, formatUnits, MaxUint256 } from "viem";
+import { parseUnits, formatUnits } from "viem";
 import { erc20Abi } from "viem";
 import "tailwindcss";
 import swapAbi from "../../../abis/swapAbi.json";
@@ -18,6 +18,9 @@ const TOKEN_B_ADDRESS = "0x4DF4493209006683e678983E1Ec097680AB45e13";
 const SWAP_CONTRACT_ADDRESS = "0xBAD4F032cC2Fd09b0C71B2D3336dD4A6beF724a7";
 const TOKEN_A_SYMBOL = "mETH";
 const TOKEN_B_SYMBOL = "mSEI";
+const MaxUint256 = BigInt(
+  "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+);
 
 export default function SwapInterface() {
   const [fromToken, setFromToken] = useState(TOKEN_A_SYMBOL);
@@ -27,7 +30,6 @@ export default function SwapInterface() {
 
   const { address, isConnected } = useAccount();
 
-  // Balance hooks
   const { data: balanceA, isLoading: isLoadingBalanceA } = useBalance({
     address,
     token: TOKEN_A_ADDRESS,
@@ -46,11 +48,20 @@ export default function SwapInterface() {
     watch: true,
   });
 
+  const { data: reserves, refetch: refetchReserves } = useReadContract({
+    address: SWAP_CONTRACT_ADDRESS,
+    abi: swapAbi,
+    functionName: "getReserves",
+    enabled: isConnected && !!address,
+  });
+
+  const reserveA = reserves?.[0];
+  const reserveB = reserves?.[1];
+
   const fromTokenAddress =
     fromToken === TOKEN_A_SYMBOL ? TOKEN_A_ADDRESS : TOKEN_B_ADDRESS;
   const fromTokenBalance = fromToken === TOKEN_A_SYMBOL ? balanceA : balanceB;
 
-  // Read allowance for the token being swapped
   const { data: allowance, refetch: refetchAllowance } = useReadContract({
     address: fromTokenAddress,
     abi: erc20Abi,
@@ -59,7 +70,6 @@ export default function SwapInterface() {
     enabled: isConnected && !!address,
   });
 
-  // Write contract hooks
   const {
     data: approveData,
     writeContractAsync: approveTx,
@@ -74,7 +84,6 @@ export default function SwapInterface() {
     error: swapError,
   } = useWriteContract();
 
-  // Transaction receipt monitoring
   const { isLoading: isConfirmingApprove, isSuccess: isSuccessApprove } =
     useWaitForTransactionReceipt({ hash: approveData?.hash });
 
@@ -102,7 +111,6 @@ export default function SwapInterface() {
     setToAmount(fromAmount);
   };
 
-  // Wait for approval transaction to be confirmed before proceeding
   const handleApprove = async () => {
     if (!isConnected || !fromAmount) return;
     try {
@@ -113,18 +121,15 @@ export default function SwapInterface() {
         args: [SWAP_CONTRACT_ADDRESS, MaxUint256],
       });
 
-      // Wait for confirmation
       const receipt = await waitForTransaction({ hash: tx.hash });
       console.log("Approval confirmed:", receipt);
 
-      // Refetch allowance after confirmation
       await refetchAllowance();
     } catch (err) {
       console.error("Failed to approve:", err);
     }
   };
 
-  // Add this to your swap function to get more detailed error information
   const handleSwap = async () => {
     if (!isConnected || !fromAmount || needsApproval()) return;
     try {
@@ -143,7 +148,6 @@ export default function SwapInterface() {
         to: address,
       });
 
-      // Add gas limit and potentially other parameters
       await swapTx({
         address: SWAP_CONTRACT_ADDRESS,
         abi: swapAbi,
@@ -161,8 +165,75 @@ export default function SwapInterface() {
     const value = e.target.value;
     if (/^\d*\.?\d*$/.test(value)) {
       setFromAmount(value);
-      // Mock price calculation - in a real app this would use actual exchange rates
+      // Mock price calculation
       setToAmount(value * (fromToken === TOKEN_A_SYMBOL ? 1 : 1 / 2));
+    }
+  };
+
+  const checkReserves = async () => {
+    try {
+      await refetchReserves(); // This triggers a refetch
+      // Use the reserves from the hook
+      if (reserves) {
+        console.log("Current Reserves:", {
+          reserveA: formatUnits(reserves[0], 18),
+          reserveB: formatUnits(reserves[1], 18),
+        });
+        return reserves;
+      } else {
+        console.log("No reserves data available");
+        return null;
+      }
+    } catch (error) {
+      console.error("Error checking reserves:", error);
+      return null;
+    }
+  };
+
+  // Add useEffect to monitor reserves
+  useEffect(() => {
+    if (isConnected && reserves) {
+      console.log("Reserves updated:", {
+        reserveA: formatUnits(reserves[0], 18),
+        reserveB: formatUnits(reserves[1], 18),
+      });
+    }
+  }, [reserves, isConnected]);
+
+  // Modify your handleAddLiquidity function
+  const handleAddLiquidity = async () => {
+    if (!isConnected || !fromAmount) return;
+
+    try {
+      // Check reserves before
+      console.log("Reserves before adding liquidity:");
+      const reservesBefore = await checkReserves();
+
+      // Your existing add liquidity logic
+      const amountWei = parseUnits(fromAmount, fromTokenBalance.decimals);
+      const tx = await addLiquidityTx({
+        address: SWAP_CONTRACT_ADDRESS,
+        abi: swapAbi,
+        functionName: "addLiquidity",
+        args: [amountWei, amountWei], // Adjust args as needed
+      });
+
+      // Wait for transaction
+      const receipt = await waitForTransaction({ hash: tx.hash });
+
+      // Check reserves after
+      console.log("Reserves after adding liquidity:");
+      const reservesAfter = await checkReserves();
+
+      // Log the difference
+      if (reservesBefore && reservesAfter) {
+        console.log("Reserve changes:", {
+          reserveAChange: formatUnits(reservesAfter[0] - reservesBefore[0], 18),
+          reserveBChange: formatUnits(reservesAfter[1] - reservesBefore[1], 18),
+        });
+      }
+    } catch (err) {
+      console.error("Add liquidity failed:", err);
     }
   };
 
@@ -269,9 +340,13 @@ export default function SwapInterface() {
               !fromAmount ||
               parseFloat(fromAmount) <= 0
             }
-            className="w-full py-3 rounded-xl font-bold bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-700 hover:to-green-600 text-white transition disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed flex justify-center items-center"
+            className={`w-full py-3 rounded-xl font-bold ${
+              isConnected
+                ? "bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-700 hover:to-green-600"
+                : "bg-gray-900 text-gray-500 cursor-not-allowed"
+            } transition duration-200 ease-in-out`}
           >
-            {isSwapping || isConfirmingSwap ? "Pending" : "Swap"}
+            {!isConnected ? "Connect Wallet" : "Swap"}
           </button>
         )}
       </div>
