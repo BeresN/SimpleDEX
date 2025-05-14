@@ -68,12 +68,3 @@ Before running this project, you need to have:
 ## License
 
 This project is licensed under the MIT License. See the `LICENSE` file for details.
-
-## Technologies
-
-- [Wagmi](https://wagmi.sh/)
-- [RainbowKit](https://www.rainbowkit.com/)
-- [Viem](https://viem.sh/)
-- [Next.js](https://nextjs.org/)
-- [Tailwind CSS](https://tailwindcss.com/)
-- [OpenZeppelin](https://docs.openzeppelin.com/)
