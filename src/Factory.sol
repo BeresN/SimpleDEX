@@ -15,6 +15,8 @@ contract Factory is Ownable {
         uint totalPairs
     );
 
+    event OwnerChanged(address newOwner);
+
     constructor(address initialOwner) Ownable(initialOwner) {}
 
     function allPairsLength() external view returns (uint) {
@@ -57,5 +59,14 @@ contract Factory is Ownable {
             : (tokenB, tokenA);
 
         pair = getPair[token0][token1];
+    }
+
+    function OwnerAddressChange(
+        address newOwner
+    ) external returns (address owner) {
+        require(newOwner != address(0), "CANNOT BE ADDRESS 0!");
+        owner = newOwner;
+
+        emit OwnerChanged(owner);
     }
 }
