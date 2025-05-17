@@ -26,7 +26,7 @@ const TOKEN_A_SYMBOL = "mETH";
 const TOKEN_B_SYMBOL = "mSEI";
 const LP_TOKEN_SYMBOL = "LPTK";
 const MaxUint256 = BigInt(
-  "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
 );
 const InputField = ({
   label,
@@ -76,8 +76,6 @@ export default function LiquidityInterface() {
   const [amountA, setAmountA] = useState("");
   const [amountB, setAmountB] = useState("");
   const [lpAmount, setLpAmount] = useState("");
-  const [pairAddress, setPairAddress] = useState(null);
-  const [isPairCreating, setIsPairCreating] = useState(false);
   const { address, isConnected } = useAccount();
 
   // --- Wagmi Hooks ---
@@ -113,12 +111,13 @@ export default function LiquidityInterface() {
     enabled: isConnected,
   });
 
-  const { data: reserve, refetch: refetchReserve } = useReadContract({
-    address: LIQUIDITY_POOL_ADDRESS,
-    functionName: "getReserves",
-    abi: liquidityPoolAbi,
-    enabled: isConnected,
-  });
+  const { data: allPairsLength, refetch: refetchAllPairsLength } =
+    useReadContract({
+      address: FACTORY_ADDRESS,
+      functionName: "allPairsLength",
+      abi: factoryAbi,
+      enabled: isConnected,
+    });
   const { data: contractOwner } = useReadContract({
     address: FACTORY_ADDRESS,
     abi: factoryAbi,
@@ -178,14 +177,16 @@ export default function LiquidityInterface() {
     }
   };
 
-  const checkReserves = async () => {
+  const isPairCreated = async () => {
+    if (!isConnected) return;
+
     try {
-      const reserves = await refetchReserve();
-      console.log("Current Reserves:", {
-        reserveA: formatUnits(reserves[0], 18),
-        reserveB: formatUnits(reserves[1], 18),
-      });
-      return reserves;
+      const pair = await refetchAllPairsLength();
+      console.log("Checking if pair is already created:");
+      if (pair.length > 0) {
+        console.log("Pair already created");
+      }
+      return pair;
     } catch (error) {
       console.error("Error checking reserves:", error);
     }
@@ -199,7 +200,7 @@ export default function LiquidityInterface() {
       console.log(
         "Creating new pair for tokens:",
         TOKEN_A_ADDRESS,
-        TOKEN_B_ADDRESS
+        TOKEN_B_ADDRESS,
       );
 
       const tx = await createPairTx({
@@ -475,15 +476,15 @@ const TxFeedback = ({ hash, successMessage, pending = false }) => {
         isSuccess
           ? "bg-green-900/50 border-green-700/50 text-green-300"
           : isLoading || pending
-          ? "bg-yellow-900/50 border-yellow-700/50 text-yellow-300"
-          : "bg-gray-700 border-gray-600 text-gray-300" // Default or pending state
+            ? "bg-yellow-900/50 border-yellow-700/50 text-yellow-300"
+            : "bg-gray-700 border-gray-600 text-gray-300" // Default or pending state
       }`}
     >
       {isSuccess
         ? successMessage
         : isLoading || pending
-        ? "Transaction Pending..."
-        : "Transaction Initiated"}{" "}
+          ? "Transaction Pending..."
+          : "Transaction Initiated"}{" "}
       <br />
       <a
         href={"https://sepolia.etherscan.io/tx/${hash}"}
