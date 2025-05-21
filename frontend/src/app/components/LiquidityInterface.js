@@ -18,7 +18,7 @@ import factoryAbi from "../../../abis/factoryAbi.json";
 import LoadingSpinner from "../utils/LoadingSpinner.js";
 
 const LIQUIDITY_POOL_ADDRESS = "0xBAD4F032cC2Fd09b0C71B2D3336dD4A6beF724a7";
-const FACTORY_ADDRESS = "0x64078611768BCb3aBa5f34F6390e57ccA3652BE7";
+const FACTORY_ADDRESS = "0x39D59a27a78E15ed245E3706c5eCFEc0131A6B45";
 
 const TOKEN_A_ADDRESS = "0x558f6e1BFfD83AD9F016865bF98D6763566d49c6";
 const TOKEN_B_ADDRESS = "0x4DF4493209006683e678983E1Ec097680AB45e13";
@@ -43,7 +43,7 @@ const InputField = ({
       <span>{label}</span>
       {balance && (
         <div className="flex items-center">
-          <span>Balance: {balance.formatted}</span>
+          <span>Balance: {parseFloat(balance.formatted).toFixed(2)}</span>
           {onMaxClick && (
             <button
               onClick={onMaxClick}
@@ -186,7 +186,7 @@ export default function LiquidityInterface() {
       if (pair.length > 0) {
         console.log("Pair already created");
       }
-      return pair;
+      return pair.length > 0;
     } catch (error) {
       console.error("Error checking reserves:", error);
     }
@@ -196,7 +196,6 @@ export default function LiquidityInterface() {
     if (!isConnected) return;
 
     try {
-      setIsPairCreating(true);
       console.log(
         "Creating new pair for tokens:",
         TOKEN_A_ADDRESS,
@@ -210,11 +209,10 @@ export default function LiquidityInterface() {
         args: [TOKEN_A_ADDRESS, TOKEN_B_ADDRESS],
       });
 
-      console.log("Creating pair transaction sent:", tx);
+      console.log("Pair created:", tx);
       return tx;
     } catch (err) {
       console.error("Create pair failed:", err);
-      setIsPairCreating(false);
       alert(`Failed to create pair: ${err.message}`);
     }
   };
@@ -223,22 +221,25 @@ export default function LiquidityInterface() {
     if (!isConnected || !amountA || !amountB || !balanceA || !balanceB) return;
 
     try {
-      console.log("Reserves before adding liquidity:");
-      const reservesBefore = await checkReserves();
-      console.log("Owner of the factory contract: ", contractOwner);
+      const pairExists = await isPairCreated();
+
+      if (!pairExists) {
+        console.log("Pair doesn't exist, creating...");
+        const pairCreationReceipt = await createPair();
+        if (!pairCreationReceipt) {
+          console.log("Pair creation failed");
+          return;
+        }
+        console.log("Pair created successfully, proceeding to add liquidity");
+      } else {
+        console.log("Pair already exists, proceeding to add liquidity");
+      }
 
       const amountAWei = parseUnits(amountA, balanceA.decimals);
       const amountBWei = parseUnits(amountB, balanceB.decimals);
 
-      if (!pairAddress) {
-        console.log("Pair doesn't exist, creating...");
-        await createPair();
-        return;
-      }
-
       const needApprovalA = allowanceA < amountAWei;
       const needApprovalB = allowanceB < amountBWei;
-      console.log("reserve before add liquidity reserve", reserve);
 
       if (needApprovalA) {
         const tx = await approveATx({
@@ -273,8 +274,6 @@ export default function LiquidityInterface() {
       });
       console.log("Add liquidity transaction sent:", tx);
       // Now check reserves AFTER the transaction is confirmed
-      console.log("Checking reserves after adding liquidity...");
-      const reservesAfter = await checkReserves();
 
       return tx;
     } catch (err) {
@@ -354,7 +353,11 @@ export default function LiquidityInterface() {
         onChange={handleAmountChange(setLpAmount)}
         balance={balanceLP}
         symbol={LP_TOKEN_SYMBOL}
-        onMaxClick={() => balanceLP && setLpAmount(balanceLP.formatted)}
+        onMaxClick={() => {
+          if (balanceLP) {
+            setLpAmount(balanceLP.formatted);
+          }
+        }}
         disabled={isProcessing || !isConnected}
       />
 
@@ -487,13 +490,11 @@ const TxFeedback = ({ hash, successMessage, pending = false }) => {
           : "Transaction Initiated"}{" "}
       <br />
       <a
-        href={"https://sepolia.etherscan.io/tx/${hash}"}
+        href={`https://sepolia.etherscan.io/tx/${hash}`}
         target="_blank"
         rel="noopener noreferrer"
         className="underline hover:text-white font-mono"
-      >
-        {hash.substring(0, 6)}...{hash.substring(hash.length - 4)}
-      </a>
+      ></a>
       {isLoading && (
         <span className="ml-2">
           <LoadingSpinner />
