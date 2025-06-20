@@ -1,6 +1,6 @@
 # SimpleSwap
 
-A simple decentralized exchange (DEX) and liquidity pool application built with Next.js, React, Wagmi, and Tailwind CSS on the Sepolia testnet. This dApp allows users to connect their wallet, add and remove liquidity for specific ERC-20 token pairs, and perform basic swaps.
+A simple decentralized exchange (DEX) and liquidity pool application built with Next.js. This dApp allows users to connect their wallet, add and remove liquidity for specific ERC-20 token pairs, perform basic swaps, and send tokens to another wallet.
 
 ## Tech Stack
 
@@ -57,7 +57,7 @@ Before running this project, you need to have:
 
 5.  Connect your wallet and switch to the **Sepolia Testnet**.
 
-6.  Ensure you have test tokens (Sepolia ETH, mETH and mSEI) in your wallet on Sepolia. If not, you'll need to find a faucet or a way to mint/acquire these specific test tokens.
+6.  Ensure you have test tokens (Sepolia ETH, mETH and mSEI) in your wallet on Sepolia. If not, mint it using faucets below.
 
 7.  Mint Tokens for your wallet, ensure that you have some Sepolia ETH tokens. Here is link to faucet [Google Faucet](https://cloud.google.com/application/web3/faucet/ethereum/sepolia)
 
