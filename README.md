@@ -1,70 +1,66 @@
-# SimpleSwap
+## Foundry
 
-A simple decentralized exchange (DEX) and liquidity pool application built with Next.js. This dApp allows users to connect their wallet, add and remove liquidity for specific ERC-20 token pairs, perform basic swaps, and send tokens to another wallet.
+**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
 
-## Tech Stack
+Foundry consists of:
 
-- **Framework:** Next.js (React)
-- **UI:** Tailwind CSS
-- **Blockchain Interaction:** Wagmi (React Hooks for Ethereum)
-- **Wallet Connection:** RainbowKit
-- **Ethereum Utilities:** Viem
-- **Smart Contracts:** Solidity (Developed separately)
-- **Testing (Smart Contracts):** Foundry
-- **OpenZeppelin:** For secure and standard smart contract components (ERC20, ReentrancyGuard).
-- **Network:** Sepolia Testnet
+- **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
+- **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
+- **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
+- **Chisel**: Fast, utilitarian, and verbose solidity REPL.
 
-## Prerequisites
+## Documentation
 
-Before running this project, you need to have:
+https://book.getfoundry.sh/
 
-- Node.js (v18 or higher recommended)
-- npm or yarn or pnpm
-- Git
-- A web browser with an Ethereum wallet extension (like MetaMask) installed and connected to the **Sepolia Testnet**.
-- Sepolia ETH and the test ERC-20 tokens (mETH and mSEI) on your connected wallet address.
+## Usage
 
-## Getting Started
+### Build
 
-1.  **Clone the repository:**
+```shell
+$ forge build
+```
 
-    ```bash
-    git clone git@github.com:BeresN/SimpleDEX.git
-    cd frontend
-    ```
+### Test
 
-2.  **Install dependencies:**
+```shell
+$ forge test
+```
 
-    ```bash
-    npm install
-    # or
-    yarn install
-    # or
-    pnpm install
-    ```
+### Format
 
-3.  **Run the development server:**
+```shell
+$ forge fmt
+```
 
-    ```bash
-    npm run dev
-    # or
-    yarn dev
-    # or
-    pnpm dev
-    ```
+### Gas Snapshots
 
-4.  Open [http://localhost:3000](http://localhost:3000) in your browser.
+```shell
+$ forge snapshot
+```
 
-5.  Connect your wallet and switch to the **Sepolia Testnet**.
+### Anvil
 
-6.  Ensure you have test tokens (Sepolia ETH, mETH and mSEI) in your wallet on Sepolia. If not, mint it using faucets below.
+```shell
+$ anvil
+```
 
-7.  Mint Tokens for your wallet, ensure that you have some Sepolia ETH tokens. Here is link to faucet [Google Faucet](https://cloud.google.com/application/web3/faucet/ethereum/sepolia)
+### Deploy
 
-8.  mETH and mSEI faucets:
-    [mETH](https://sepolia.etherscan.io/address/0x558f6e1BFfD83AD9F016865bF98D6763566d49c6#code)
-    [mSEI](https://sepolia.etherscan.io/address/0x4DF4493209006683e678983E1Ec097680AB45e13#code)
+```shell
+$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
+```
 
-## License
+### Cast
 
-This project is licensed under the MIT License. See the `LICENSE` file for details.
+```shell
+$ cast <subcommand>
+```
+
+### Help
+
+```shell
+$ forge --help
+$ anvil --help
+$ cast --help
+```
