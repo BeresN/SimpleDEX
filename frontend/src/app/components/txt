@@ -1,0 +1,1283 @@
+----LiquidityInterface----
+"use client";
+
+import { useState } from "react";
+import {
+  useAccount,
+  useBalance,
+  useReadContract,
+  useWriteContract,
+  useWaitForTransactionReceipt,
+} from "wagmi";
+import { parseUnits, parseEther, erc20Abi, formatUnits } from "viem";
+
+import { ConnectButton } from "@rainbow-me/rainbowkit";
+import "tailwindcss";
+import liquidityPoolAbi from "../../../abis/liquidityPoolAbi.json";
+import factoryAbi from "../../../abis/factoryAbi.json";
+
+import LoadingSpinner from "../utils/LoadingSpinner.js";
+
+const LIQUIDITY_POOL_ADDRESS = "0xBAD4F032cC2Fd09b0C71B2D3336dD4A6beF724a7";
+const FACTORY_ADDRESS = "0x39D59a27a78E15ed245E3706c5eCFEc0131A6B45";
+
+const TOKEN_A_ADDRESS = "0x558f6e1BFfD83AD9F016865bF98D6763566d49c6";
+const TOKEN_B_ADDRESS = "0x4DF4493209006683e678983E1Ec097680AB45e13";
+const TOKEN_A_SYMBOL = "mETH";
+const TOKEN_B_SYMBOL = "mSEI";
+const LP_TOKEN_SYMBOL = "LPTK";
+const MaxUint256 = BigInt(
+  "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+);
+const InputField = ({
+  label,
+  value,
+  onChange,
+  placeholder,
+  balance,
+  symbol,
+  onMaxClick,
+  disabled,
+}) => (
+  <div className="bg-gray-900 p-4 rounded-xl mb-2">
+    <div className="flex justify-between items-center mb-2 text-xs text-gray-400">
+      <span>{label}</span>
+      {balance && (
+        <div className="flex items-center">
+          <span>Balance: {parseFloat(balance.formatted).toFixed(2)}</span>
+          {onMaxClick && (
+            <button
+              onClick={onMaxClick}
+              className="ml-1.5 text-emerald-500 hover:text-emerald-400 text-xs font-bold disabled:text-gray-600 disabled:cursor-not-allowed"
+              disabled={disabled || !parseFloat(balance.formatted) > 0}
+            >
+              MAX
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+    <div className="flex items-center">
+      <input
+        type="text"
+        inputMode="decimal"
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder || "0"}
+        className="w-full bg-transparent text-2xl outline-none placeholder-gray-500 text-gray-100 disabled:opacity-70"
+        disabled={disabled}
+      />
+      <span className="text-xl font-medium text-gray-300 ml-2">{symbol}</span>
+    </div>
+  </div>
+);
+
+export default function LiquidityInterface() {
+  const [viewMode, setViewMode] = useState("add");
+  const [amountA, setAmountA] = useState("");
+  const [amountB, setAmountB] = useState("");
+  const [lpAmount, setLpAmount] = useState("");
+  const { address, isConnected } = useAccount();
+
+  // --- Wagmi Hooks ---
+  const { data: balanceA, isLoading: isLoadingBalanceA } = useBalance({
+    address,
+    token: TOKEN_A_ADDRESS,
+    watch: true,
+  });
+  const { data: balanceB, isLoading: isLoadingBalanceB } = useBalance({
+    address,
+    token: TOKEN_B_ADDRESS,
+    watch: true,
+  });
+  const { data: balanceLP, isLoading: isLoadingBalanceLP } = useBalance({
+    address,
+    token: LIQUIDITY_POOL_ADDRESS,
+    watch: true,
+  });
+
+  // Read Allowances
+  const { data: allowanceA, refetch: refetchAllowanceA } = useReadContract({
+    address: TOKEN_A_ADDRESS,
+    functionName: "allowance",
+    abi: erc20Abi,
+    args: [address, LIQUIDITY_POOL_ADDRESS],
+    enabled: isConnected,
+  });
+  const { data: allowanceB, refetch: refetchAllowanceB } = useReadContract({
+    address: TOKEN_B_ADDRESS,
+    functionName: "allowance",
+    abi: erc20Abi,
+    args: [address, LIQUIDITY_POOL_ADDRESS],
+    enabled: isConnected,
+  });
+
+  const { data: allPairsLength, refetch: refetchAllPairsLength } =
+    useReadContract({
+      address: FACTORY_ADDRESS,
+      functionName: "allPairsLength",
+      abi: factoryAbi,
+      enabled: isConnected,
+    });
+  const { data: contractOwner } = useReadContract({
+    address: FACTORY_ADDRESS,
+    abi: factoryAbi,
+    functionName: "owner",
+    enabled: isConnected,
+  });
+  // Contract Write Hooks
+  const {
+    data: approveAData,
+    writeContractAsync: approveATx,
+    isPending: isApprovingA,
+    error: approveAError,
+  } = useWriteContract();
+  const {
+    data: approveBData,
+    writeContractAsync: approveBTx,
+    isPending: isApprovingB,
+    error: approveBError,
+  } = useWriteContract();
+  const {
+    data: addLiqData,
+    writeContractAsync: addLiquidityTx,
+    isPending: isAddingLiquidity,
+    error: addLiqError,
+  } = useWriteContract();
+  const {
+    data: remLiqData,
+    writeContractAsync: removeLiquidityTx,
+    isPending: isRemovingLiquidity,
+    error: remLiqError,
+  } = useWriteContract();
+  const {
+    data: createPairData,
+    writeContractAsync: createPairTx,
+    isPending: isCreatingPair,
+    error: createPairError,
+  } = useWriteContract();
+
+  // Monitor approval tx receipt
+  const { isLoading: isConfirmingApproveA, isSuccess: isSuccessApproveA } =
+    useWaitForTransactionReceipt({ hash: approveAData?.hash });
+  const { isLoading: isConfirmingApproveB, isSuccess: isSuccessApproveB } =
+    useWaitForTransactionReceipt({ hash: approveBData?.hash });
+
+  const isApprovalPending =
+    isApprovingA ||
+    isConfirmingApproveA ||
+    isApprovingB ||
+    isConfirmingApproveB;
+  const isProcessing =
+    isApprovalPending || isAddingLiquidity || isRemovingLiquidity;
+
+  const handleAmountChange = (setter) => (e) => {
+    const value = e.target.value;
+    if (/^\d*\.?\d*$/.test(value)) {
+      setter(value);
+    }
+  };
+
+  const isPairCreated = async () => {
+    if (!isConnected) return;
+
+    try {
+      const pair = await refetchAllPairsLength();
+      console.log("Checking if pair is already created:");
+      if (pair.length > 0) {
+        console.log("Pair already created");
+      }
+      return pair.length > 0;
+    } catch (error) {
+      console.error("Error checking reserves:", error);
+    }
+  };
+
+  const createPair = async () => {
+    if (!isConnected) return;
+
+    try {
+      console.log(
+        "Creating new pair for tokens:",
+        TOKEN_A_ADDRESS,
+        TOKEN_B_ADDRESS,
+      );
+
+      const tx = await createPairTx({
+        address: FACTORY_ADDRESS,
+        abi: factoryAbi,
+        functionName: "CreateNewPair",
+        args: [TOKEN_A_ADDRESS, TOKEN_B_ADDRESS],
+      });
+
+      console.log("Pair created:", tx);
+      return tx;
+    } catch (err) {
+      console.error("Create pair failed:", err);
+      alert(`Failed to create pair: ${err.message}`);
+    }
+  };
+
+  const handleAddLiquidityWithApprove = async () => {
+    if (!isConnected || !amountA || !amountB || !balanceA || !balanceB) return;
+
+    try {
+      const pairExists = await isPairCreated();
+
+      if (!pairExists) {
+        console.log("Pair doesn't exist, creating...");
+        const pairCreationReceipt = await createPair();
+        if (!pairCreationReceipt) {
+          console.log("Pair creation failed");
+          return;
+        }
+        console.log("Pair created successfully, proceeding to add liquidity");
+      } else {
+        console.log("Pair already exists, proceeding to add liquidity");
+      }
+
+      const amountAWei = parseUnits(amountA, balanceA.decimals);
+      const amountBWei = parseUnits(amountB, balanceB.decimals);
+
+      const needApprovalA = allowanceA < amountAWei;
+      const needApprovalB = allowanceB < amountBWei;
+
+      if (needApprovalA) {
+        const tx = await approveATx({
+          address: TOKEN_A_ADDRESS,
+          abi: erc20Abi,
+          functionName: "approve",
+          args: [LIQUIDITY_POOL_ADDRESS, MaxUint256],
+        });
+        console.log(`Waiting for ${TOKEN_A_SYMBOL} approval...`);
+        const receiptA = await waitForTransaction({ hash: tx.hash });
+        console.log(`${TOKEN_A_SYMBOL} approved!`);
+      }
+
+      if (needApprovalB) {
+        const tx = await approveBTx({
+          address: TOKEN_B_ADDRESS,
+          abi: erc20Abi,
+          functionName: "approve",
+          args: [LIQUIDITY_POOL_ADDRESS, MaxUint256],
+        });
+        console.log(`Waiting for ${TOKEN_B_SYMBOL} approval...`);
+        const receiptA = await waitForTransaction({ hash: tx.hash });
+        console.log(`${TOKEN_B_SYMBOL} approved!`);
+      }
+
+      console.log("Adding liquidity...");
+      const tx = await addLiquidityTx({
+        address: LIQUIDITY_POOL_ADDRESS,
+        abi: liquidityPoolAbi,
+        functionName: "addLiquidity",
+        args: [amountAWei, amountBWei],
+      });
+      console.log("Add liquidity transaction sent:", tx);
+      // Now check reserves AFTER the transaction is confirmed
+
+      return tx;
+    } catch (err) {
+      console.error("Add liquidity failed:", err);
+      alert(`Failed to add liquidity: ${err.message}`);
+    }
+  };
+
+  const handleRemoveLiquidity = async () => {
+    if (!isConnected || !lpAmount || !balanceLP || parseFloat(lpAmount) <= 0)
+      return;
+    try {
+      const lpAmountWei = parseEther(lpAmount, balanceLP.decimals);
+
+      if (lpAmountWei > balanceLP.value) {
+        alert("Insufficient LP token balance.");
+        return;
+      }
+
+      await removeLiquidityTx({
+        address: LIQUIDITY_POOL_ADDRESS,
+        abi: liquidityPoolAbi,
+        functionName: "removeLiquidity",
+        args: [lpAmountWei],
+      });
+    } catch (err) {
+      console.error("Remove liquidity failed:", err);
+    }
+  };
+
+  // --- Render Logic ---
+  const renderAddLiquidity = () => (
+    <>
+      <InputField
+        label="Amount A"
+        value={amountA}
+        onChange={handleAmountChange(setAmountA)}
+        balance={balanceA}
+        symbol={TOKEN_A_SYMBOL}
+        onMaxClick={() => balanceA && setAmountA(balanceA.formatted)}
+        disabled={isProcessing || !isConnected}
+      />
+      <InputField
+        label="Amount B"
+        value={amountB}
+        onChange={handleAmountChange(setAmountB)}
+        balance={balanceB}
+        symbol={TOKEN_B_SYMBOL}
+        onMaxClick={() => balanceB && setAmountB(balanceB.formatted)}
+        disabled={isProcessing || !isConnected}
+      />
+
+      <div className="mt-4 space-y-3">
+        <button
+          onClick={handleAddLiquidityWithApprove}
+          disabled={
+            isProcessing ||
+            !isConnected ||
+            !amountA ||
+            !amountB ||
+            parseFloat(amountA) <= 0 ||
+            parseFloat(amountB) <= 0
+          }
+          className="w-full py-3 rounded-xl font-semibold text-lg bg-emerald-600 hover:bg-emerald-700 text-white transition duration-200 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed flex justify-center items-center"
+        >
+          {isAddingLiquidity ? <LoadingSpinner /> : "Add Liquidity"}
+        </button>
+      </div>
+    </>
+  );
+
+  const renderRemoveLiquidity = () => (
+    <>
+      <InputField
+        label="Amount LP Tokens"
+        value={lpAmount}
+        onChange={handleAmountChange(setLpAmount)}
+        balance={balanceLP}
+        symbol={LP_TOKEN_SYMBOL}
+        onMaxClick={() => {
+          if (balanceLP) {
+            setLpAmount(balanceLP.formatted);
+          }
+        }}
+        disabled={isProcessing || !isConnected}
+      />
+
+      <div className="mt-3">
+        <button
+          onClick={handleRemoveLiquidity}
+          disabled={
+            isProcessing ||
+            !isConnected ||
+            !lpAmount ||
+            parseFloat(lpAmount) <= 0
+          }
+          className="w-full py-3 rounded-xl font-semibold text-lg bg-red-600 hover:bg-red-700 text-white transition duration-200 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed flex justify-center items-center"
+        >
+          {isRemovingLiquidity ? <LoadingSpinner /> : "Remove Liquidity"}
+        </button>
+      </div>
+    </>
+  );
+
+  return (
+    <div className="bg-gray-800 rounded-2xl p-4 sm:p-5 max-w-md mx-auto mt-8 text-white border border-gray-700 shadow-lg">
+      <div className="flex justify-between items-center mb-5">
+        <div className="flex flex-col space-y-2">
+          <button
+            onClick={() => setViewMode("add")}
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${
+              viewMode === "add"
+                ? "bg-emerald-600 text-white"
+                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+            }`}
+            disabled={isProcessing}
+          >
+            Add Liquidity
+          </button>
+          <button
+            onClick={() => setViewMode("remove")}
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${
+              viewMode === "remove"
+                ? "bg-red-600 text-white"
+                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+            }`}
+            disabled={isProcessing}
+          >
+            Remove Liquidity
+          </button>
+        </div>
+
+        <ConnectButton
+          showBalance={false}
+          chainStatus="icon"
+          accountStatus="address"
+        />
+      </div>
+
+      {!isConnected ? (
+        <div className="text-center text-gray-400 py-8">
+          Please connect your wallet.
+        </div>
+      ) : viewMode === "add" ? (
+        renderAddLiquidity()
+      ) : (
+        renderRemoveLiquidity()
+      )}
+
+      {isProcessing && (
+        <div className="mt-4 text-center text-sm text-yellow-400">
+          Processing Transaction... Check Wallet
+        </div>
+      )}
+      {addLiqData && (
+        <TxFeedback hash={addLiqData.hash} successMessage="Liquidity Added!" />
+      )}
+      {remLiqData && (
+        <TxFeedback
+          hash={remLiqData.hash}
+          successMessage="Liquidity Removed!"
+        />
+      )}
+      {approveAData && isSuccessApproveA && (
+        <TxFeedback
+          hash={approveAData.hash}
+          successMessage={`${TOKEN_A_SYMBOL} Approved!`}
+          pending
+        />
+      )}
+      {approveBData && isSuccessApproveB && (
+        <TxFeedback
+          hash={approveBData.hash}
+          successMessage={`${TOKEN_B_SYMBOL} Approved!`}
+          pending
+        />
+      )}
+
+      {(approveAError || approveBError || addLiqError || remLiqError) && (
+        <div className="mt-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-center text-red-300 text-xs break-words">
+          Error:{" "}
+          {(approveAError || approveBError || addLiqError || remLiqError)
+            ?.shortMessage || "An error occurred."}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Helper component for Transaction Feedback
+const TxFeedback = ({ hash, successMessage, pending = false }) => {
+  const {
+    data: receipt,
+    isLoading,
+    isSuccess,
+  } = useWaitForTransactionReceipt({ hash });
+
+  if (!hash) return null;
+
+  return (
+    <div
+      className={`mt-4 p-2 border rounded-lg text-center text-xs sm:text-sm break-all ${
+        isSuccess
+          ? "bg-green-900/50 border-green-700/50 text-green-300"
+          : isLoading || pending
+            ? "bg-yellow-900/50 border-yellow-700/50 text-yellow-300"
+            : "bg-gray-700 border-gray-600 text-gray-300" // Default or pending state
+      }`}
+    >
+      {isSuccess
+        ? successMessage
+        : isLoading || pending
+          ? "Transaction Pending..."
+          : "Transaction Initiated"}{" "}
+      <br />
+      <a
+        href={`https://sepolia.etherscan.io/tx/${hash}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline hover:text-white font-mono"
+      ></a>
+      {isLoading && (
+        <span className="ml-2">
+          <LoadingSpinner />
+        </span>
+      )}
+    </div>
+  );
+};
+----liquidityPositions----
+"use client";
+
+import { useState, useEffect } from "react";
+import { useAccount, useReadContract, useBalance } from "wagmi";
+import { formatUnits, erc20Abi } from "viem";
+import factoryAbi from "../../../abis/factoryAbi.json";
+import liquidityPoolAbi from "../../../abis/liquidityPoolAbi.json";
+import { useRouter } from "next/navigation";
+
+// Assuming you have a factory contract that manages all liquidity pools
+const FACTORY_ADDRESS = "0x39D59a27a78E15ed245E3706c5eCFEc0131A6B45";
+const LIQUIDITY_POOL_ADDRESS = "0xBAD4F032cC2Fd09b0C71B2D3336dD4A6beF724a7";
+const TOKEN_A_ADDRESS = "0x558f6e1BFfD83AD9F016865bF98D6763566d49c6";
+const TOKEN_B_ADDRESS = "0x4DF4493209006683e678983E1Ec097680AB45e13";
+const TOKEN_A_SYMBOL = "mETH";
+const TOKEN_B_SYMBOL = "mSEI";
+
+export default function LiquidityPositions() {
+  const { address, isConnected } = useAccount();
+  const [userPools, setUserPools] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+
+  // Read data from the factory contract
+  const { data: pairAddress, isLoading: isLoadingPair } = useReadContract({
+    address: FACTORY_ADDRESS,
+    abi: factoryAbi,
+    functionName: "getPairAddress",
+    args: [TOKEN_A_ADDRESS, TOKEN_B_ADDRESS],
+    enabled: isConnected,
+  });
+
+  const pairAddressStr = pairAddress ? String(pairAddress) : "";
+
+  // Get LP Token balance
+  const { data: lpBalance, refetch: refetchLpBalance } = useBalance({
+    address,
+    token: LIQUIDITY_POOL_ADDRESS,
+    watch: true,
+    enabled: isConnected && !!LIQUIDITY_POOL_ADDRESS,
+  });
+
+  // Get reserves
+  const { data: reserves, refetch: refetchReserves } = useReadContract({
+    address: LIQUIDITY_POOL_ADDRESS,
+    abi: liquidityPoolAbi,
+    functionName: "getReserves",
+    enabled: isConnected && !!LIQUIDITY_POOL_ADDRESS,
+  });
+
+  // Get total supply of LP tokens
+  const { data: totalSupply } = useReadContract({
+    address: LIQUIDITY_POOL_ADDRESS,
+    abi: liquidityPoolAbi,
+    functionName: "totalSupply",
+    enabled: isConnected && !!LIQUIDITY_POOL_ADDRESS,
+  });
+
+  useEffect(() => {
+    if (
+      isConnected &&
+      pairAddressStr &&
+      pairAddressStr !== "" &&
+      pairAddressStr !== "0x0000000000000000000000000000000000000000"
+    ) {
+      fetchUserPools();
+    } else {
+      setIsLoading(false);
+    }
+  }, [isConnected, pairAddressStr, lpBalance]);
+
+  const fetchUserPools = async () => {
+    try {
+      setIsLoading(true);
+      console.log("Fetching user pools...");
+
+      if (!lpBalance || !reserves || !totalSupply) {
+        console.log("Missing data to calculate position");
+        setUserPools([]);
+        setIsLoading(false);
+        return;
+      }
+
+      const userShare = (lpBalance.value * BigInt(10000)) / totalSupply;
+
+      const userTokenAAmount = (reserves[0] * lpBalance.value) / totalSupply;
+      const userTokenBAmount = (reserves[1] * lpBalance.value) / totalSupply;
+
+      if (lpBalance.value > BigInt(0)) {
+        const newPool = {
+          poolAddress: LIQUIDITY_POOL_ADDRESS,
+          tokenA: {
+            address: TOKEN_A_ADDRESS,
+            symbol: TOKEN_A_SYMBOL,
+            decimals: 18,
+          },
+          tokenB: {
+            address: TOKEN_B_ADDRESS,
+            symbol: TOKEN_B_SYMBOL,
+            decimals: 18,
+          },
+          userTokenAAmount,
+          userTokenBAmount,
+          userShare,
+          lpBalance,
+        };
+
+        setUserPools([newPool]);
+      } else {
+        setUserPools([]);
+      }
+
+      setIsLoading(false);
+    } catch (error) {
+      console.error("Error fetching user pools:", error);
+      setIsLoading(false);
+    }
+  };
+
+  if (!isConnected) {
+    return (
+      <div className="bg-gray-800 rounded-2xl p-4 sm:p-5 max-w-4xl mx-auto mt-8 text-white border border-gray-700 shadow-lg">
+        <div className="flex justify-between items-center mb-5">
+          <h2 className="text-xl font-bold">Your Liquidity Positions</h2>
+        </div>
+        <div className="text-center text-gray-400 py-8">
+          Please connect your wallet to view your liquidity positions.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-gray-800 rounded-2xl p-4 sm:p-5 max-w-4xl mx-auto mt-8 text-white border border-gray-700 shadow-lg">
+      <div className="flex justify-between items-center mb-5">
+        <h2 className="text-xl font-bold">Your Liquidity Positions</h2>
+      </div>
+
+      {isLoading ? (
+        <div className="text-center py-10">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-500 mb-4"></div>
+          <p className="text-gray-400">Loading your positions...</p>
+        </div>
+      ) : userPools.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-700">
+            <thead>
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  Pool
+                </th>
+                <th className="px-4 py-3 text-middle text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  Your Liquidity
+                </th>
+                <th className="px-4 py-3 text-middle text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  Your Share
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-700">
+              {userPools.map((pool, index) => (
+                <tr key={index} className="hover:bg-gray-700">
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0 h-8 w-8 relative">
+                        <div className="absolute left-0 top-0 h-6 w-6 rounded-full bg-blue-500 flex items-center justify-center">
+                          {pool.tokenA.symbol.charAt(0)}
+                        </div>
+                        <div className="absolute right-0 bottom-0 h-6 w-6 rounded-full bg-green-500 flex items-center justify-center">
+                          {pool.tokenB.symbol.charAt(0)}
+                        </div>
+                      </div>
+                      <div className="ml-4">
+                        <div className="text-sm font-medium">
+                          {pool.tokenA.symbol}/{pool.tokenB.symbol}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          {pool.poolAddress.slice(0, 6)}...
+                          {pool.poolAddress.slice(-4)}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    <div className="text-sm">
+                      {formatUnits(
+                        pool.userTokenAAmount,
+                        pool.tokenA.decimals,
+                      ).substring(0, 8)}{" "}
+                      {pool.tokenA.symbol}
+                    </div>
+                    <div className="text-sm">
+                      {formatUnits(
+                        pool.userTokenBAmount,
+                        pool.tokenB.decimals,
+                      ).substring(0, 8)}{" "}
+                      {pool.tokenB.symbol}
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium">
+                      {Number(pool.userShare) / 100}%
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      {formatUnits(pool.lpBalance.value, 18).substring(0, 8)} LP
+                      Tokens
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm"> </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : pairAddressStr &&
+        pairAddressStr !== "0x0000000000000000000000000000000000000000" ? (
+        <div className="text-center py-10 px-4">
+          <div className="text-gray-400 mb-6">
+            <p>
+              You don't have any liquidity positions in the {TOKEN_A_SYMBOL}/
+              {TOKEN_B_SYMBOL} pool yet.
+            </p>
+            <p className="mt-2">Add liquidity to start earning fees!</p>
+          </div>
+        </div>
+      ) : isLoadingPair ? (
+        <div className="text-center py-10">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-500 mb-4"></div>
+          <p className="text-gray-400">Checking for available pools...</p>
+        </div>
+      ) : (
+        <div className="text-center py-10 px-4">
+          <div className="text-gray-400 mb-6">
+            <p>No liquidity pair exists yet.</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+----SendInterface---
+"use client";
+import { useState } from "react";
+import {
+  useAccount,
+  useBalance,
+  useReadContract,
+  useWriteContract,
+} from "wagmi";
+import { isAddress, erc20Abi, parseEther } from "viem";
+import "tailwindcss";
+
+const TOKEN_A_ADDRESS = "0x558f6e1BFfD83AD9F016865bF98D6763566d49c6";
+const TOKEN_B_ADDRESS = "0x4DF4493209006683e678983E1Ec097680AB45e13";
+const TOKEN_A_SYMBOL = "mETH";
+const TOKEN_B_SYMBOL = "mSEI";
+
+export default function SendInterface() {
+  const [fromToken, setTokenToSend] = useState(TOKEN_A_SYMBOL);
+  const [sendAmount, setSendAmount] = useState("");
+  const [isRecipientValid, setIsRecipientValid] = useState(false);
+  const [recipientTouched, setRecipientTouched] = useState(false);
+  const [recipientAddress, setRecipientAddress] = useState("");
+  const { address, isConnected } = useAccount();
+
+  const { data: balanceA, isLoading: isLoadingBalanceA } = useBalance({
+    address,
+    token: TOKEN_A_ADDRESS,
+    watch: true,
+  });
+
+  const { data: balanceB, isLoading: isLoadingBalanceB } = useBalance({
+    address,
+    token: TOKEN_B_ADDRESS,
+    watch: true,
+  });
+  const tokenBalance = fromToken === TOKEN_A_SYMBOL ? balanceA : balanceB;
+  const tokenAddress =
+    fromToken === TOKEN_A_SYMBOL ? TOKEN_A_ADDRESS : TOKEN_B_ADDRESS;
+
+  const handleTokenChange = (newTokenSymbol) => {
+    setTokenToSend(newTokenSymbol);
+    setSendAmount("");
+  };
+
+  const handleAmountChange = (e) => {
+    const value = e.target.value;
+    if (/^\d*\.?\d*$/.test(value)) {
+      setSendAmount(value);
+    }
+  };
+
+  const handleRecipientChange = (e) => {
+    const value = e.target.value;
+    setRecipientAddress(value);
+    setRecipientTouched(true);
+
+    if (value && isAddress(value)) {
+      setIsRecipientValid(true);
+    } else {
+      setIsRecipientValid(false);
+    }
+  };
+
+  const { writeContractAsync, isPending, isSuccess, isError, error } =
+    useWriteContract();
+
+  const handleSend = () => {
+    console.log("token a balance: ", balanceA);
+    console.log("token b balance: ", balanceB);
+
+    try {
+      writeContractAsync({
+        address: tokenAddress,
+        abi: erc20Abi,
+        functionName: "transfer",
+        args: [recipientAddress, parseEther(sendAmount)],
+      });
+    } catch (err) {
+      console.log("transfer failed: ", err);
+    }
+  };
+
+  return (
+    <div className="bg-gray-800 rounded-xl p-4 max-w-md mx-auto mt-8 text-white justify-center">
+      <div className="bg-gray-800 text-white p-4 max-w-md mx-auto rounded-xl">
+        {isConnected && (
+          <span>Balance: {tokenBalance ? tokenBalance.formatted : "0.00"}</span>
+        )}
+        <div className="text-center text-gray-400 mb-2 text-sm">
+          You are sending
+        </div>
+        <div className="bg-gray-900 p-3 rounded-xl flex justify-between mb-4 self-center">
+          <input
+            type="text"
+            value={sendAmount}
+            onChange={handleAmountChange}
+            placeholder="0.00"
+            className="w-full bg-gray-900 rounded p-2 text-center outline-none"
+          />
+          <select
+            value={fromToken}
+            onChange={(e) => handleTokenChange(e.target.value)}
+            className="bg-gray-700 rounded-xl p-2"
+          >
+            <option value="mETH">mETH</option>
+            <option value="mSEI">mSEI</option>
+          </select>
+        </div>
+
+        {/* To section */}
+        <div className="mb-6">
+          <div className="text-center text-gray-400 mb-4 text-sm">To</div>
+          <input
+            type="text"
+            value={recipientAddress}
+            onChange={handleRecipientChange}
+            placeholder="provide wallet address"
+            className={`w-full bg-gray-900 border ${
+              recipientTouched && !isRecipientValid && recipientAddress // Show red border only if touched, not empty, and invalid
+                ? "border-red-500 focus:border-red-500 focus:ring-red-500" // Invalid style
+                : "border-gray-900 focus:border-emerald-500 focus:ring-emerald-500" // Default/valid style
+            } rounded-lg p-2 text-center text-base font-mono transition-colors duration-150 outline-none focus:ring-1`} // Added focus styles, mono font
+          />
+          {recipientTouched && !isRecipientValid && recipientAddress && (
+            <p className="text-red-500 text-xs text-center mt-1">
+              Please enter a valid Ethereum address.
+            </p>
+          )}
+        </div>
+      </div>
+      {isSuccess && (
+        <div className="bg-green-900/50 border border-green-500 text-green-200 p-2 rounded-lg mb-4 text-sm text-center">
+          Transfer successful!
+        </div>
+      )}
+      {isError && (
+        <div className="border-red-500 focus:border-red-500 focus:ring-red-500">
+          Transfer Failed!
+        </div>
+      )}
+
+      <button
+        onClick={handleSend}
+        className={`w-full py-3 rounded-xl font-bold ${
+          // Check isRecipientValid here
+          isConnected && sendAmount && isRecipientValid
+            ? "bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-700 hover:to-green-600" // Added hover
+            : "bg-gray-900 text-gray-500 cursor-not-allowed" // Updated disabled style
+        } transition duration-200 ease-in-out`}
+        // Update disabled check
+        disabled={!isConnected || !sendAmount || !isRecipientValid || isPending}
+      >
+        {!isConnected
+          ? "Connect Wallet"
+          : !sendAmount
+          ? "Enter an amount"
+          : !recipientAddress
+          ? "Enter recipient"
+          : !isRecipientValid
+          ? "Invalid Address"
+          : "Send"}
+        {isPending ? "Pending transaction" : isRecipientValid}
+      </button>
+    </div>
+  );
+}
+----SwapInterface----
+"use client";
+
+import { useState, useEffect } from "react";
+import {
+  useAccount,
+  useBalance,
+  useReadContract,
+  useWriteContract,
+  useWaitForTransactionReceipt,
+} from "wagmi";
+import { parseUnits, formatUnits } from "viem";
+import { erc20Abi } from "viem";
+import "tailwindcss";
+import swapAbi from "../../../abis/swapAbi.json";
+
+const TOKEN_A_ADDRESS = "0x558f6e1BFfD83AD9F016865bF98D6763566d49c6";
+const TOKEN_B_ADDRESS = "0x4DF4493209006683e678983E1Ec097680AB45e13";
+const SWAP_CONTRACT_ADDRESS = "0xBAD4F032cC2Fd09b0C71B2D3336dD4A6beF724a7";
+const TOKEN_A_SYMBOL = "mETH";
+const TOKEN_B_SYMBOL = "mSEI";
+const MaxUint256 = BigInt(
+  "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+);
+
+export default function SwapInterface() {
+  const [fromToken, setFromToken] = useState(TOKEN_A_SYMBOL);
+  const [toToken, setToToken] = useState(TOKEN_B_SYMBOL);
+  const [fromAmount, setFromAmount] = useState("");
+  const [toAmount, setToAmount] = useState("");
+
+  const { address, isConnected } = useAccount();
+
+  const { data: balanceA, isLoading: isLoadingBalanceA } = useBalance({
+    address,
+    token: TOKEN_A_ADDRESS,
+    watch: true,
+  });
+
+  const { data: balanceB, isLoading: isLoadingBalanceB } = useBalance({
+    address,
+    token: TOKEN_B_ADDRESS,
+    watch: true,
+  });
+
+  const { data: balanceLP, isLoading: isLoadingBalanceLP } = useBalance({
+    address,
+    token: SWAP_CONTRACT_ADDRESS,
+    watch: true,
+  });
+
+  const { data: reserves, refetch: refetchReserves } = useReadContract({
+    address: SWAP_CONTRACT_ADDRESS,
+    abi: swapAbi,
+    functionName: "getReserves",
+    enabled: isConnected && !!address,
+  });
+
+  const reserveA = reserves?.[0];
+  const reserveB = reserves?.[1];
+
+  const fromTokenAddress =
+    fromToken === TOKEN_A_SYMBOL ? TOKEN_A_ADDRESS : TOKEN_B_ADDRESS;
+  const fromTokenBalance = fromToken === TOKEN_A_SYMBOL ? balanceA : balanceB;
+
+  const { data: allowance, refetch: refetchAllowance } = useReadContract({
+    address: fromTokenAddress,
+    abi: erc20Abi,
+    functionName: "allowance",
+    args: [address, SWAP_CONTRACT_ADDRESS],
+    enabled: isConnected && !!address,
+  });
+
+  const {
+    data: approveData,
+    writeContractAsync: approveTx,
+    isPending: isApproving,
+    error: approveError,
+  } = useWriteContract();
+
+  const {
+    data: swapData,
+    writeContractAsync: swapTx,
+    isPending: isSwapping,
+    error: swapError,
+  } = useWriteContract();
+
+  const { isLoading: isConfirmingApprove, isSuccess: isSuccessApprove } =
+    useWaitForTransactionReceipt({ hash: approveData?.hash });
+
+  const { isLoading: isConfirmingSwap, isSuccess: isSuccessSwap } =
+    useWaitForTransactionReceipt({ hash: swapData?.hash });
+
+  const needsApproval = () => {
+    if (!isConnected || !fromAmount || !fromTokenBalance || !allowance)
+      return false;
+    try {
+      const amountWei = parseUnits(fromAmount, fromTokenBalance.decimals);
+      return allowance < amountWei;
+    } catch {
+      return false;
+    }
+  };
+
+  const isProcessing =
+    isApproving || isConfirmingApprove || isSwapping || isConfirmingSwap;
+
+  const handleSwapTokens = () => {
+    setFromToken(toToken);
+    setToToken(fromToken);
+    setFromAmount(toAmount);
+    setToAmount(fromAmount);
+  };
+
+  const handleApprove = async () => {
+    if (!isConnected || !fromAmount) return;
+    try {
+      const tx = await approveTx({
+        address: fromTokenAddress,
+        abi: erc20Abi,
+        functionName: "approve",
+        args: [SWAP_CONTRACT_ADDRESS, MaxUint256],
+      });
+
+      const receipt = await waitForTransaction({ hash: tx.hash });
+      console.log("Approval confirmed:", receipt);
+
+      await refetchAllowance();
+    } catch (err) {
+      console.error("Failed to approve:", err);
+    }
+  };
+
+  const handleSwap = async () => {
+    if (!isConnected || !fromAmount || needsApproval()) return;
+    try {
+      const amountWei = parseUnits(fromAmount, fromTokenBalance.decimals);
+
+      // Determine which token is being swapped from
+      const amountAIn = fromToken === TOKEN_A_SYMBOL ? amountWei : 0n;
+      const amountBIn = fromToken === TOKEN_B_SYMBOL ? amountWei : 0n;
+      if (balanceLP < amountAIn) {
+        console.log("insufficient Amount of LP, add liquidity", balanceLP);
+      }
+
+      console.log("Swapping with:", {
+        amountAIn: amountAIn.toString(),
+        amountBIn: amountBIn.toString(),
+        to: address,
+      });
+
+      await swapTx({
+        address: SWAP_CONTRACT_ADDRESS,
+        abi: swapAbi,
+        functionName: "swap",
+        args: [amountAIn, amountBIn, address],
+      });
+    } catch (err) {
+      console.error("Swap failed:", err);
+      // Display detailed error to user
+      alert(`Swap failed: ${err.message}`);
+    }
+  };
+
+  const handleFromAmountChange = (e) => {
+    const value = e.target.value;
+    if (/^\d*\.?\d*$/.test(value)) {
+      setFromAmount(value);
+      // Mock price calculation
+      setToAmount(value * (fromToken === TOKEN_A_SYMBOL ? 1 : 1 / 2));
+    }
+  };
+
+  const checkReserves = async () => {
+    try {
+      await refetchReserves(); // This triggers a refetch
+      // Use the reserves from the hook
+      if (reserves) {
+        console.log("Current Reserves:", {
+          reserveA: formatUnits(reserves[0], 18),
+          reserveB: formatUnits(reserves[1], 18),
+        });
+        return reserves;
+      } else {
+        console.log("No reserves data available");
+        return null;
+      }
+    } catch (error) {
+      console.error("Error checking reserves:", error);
+      return null;
+    }
+  };
+
+  // Add useEffect to monitor reserves
+  useEffect(() => {
+    if (isConnected && reserves) {
+      console.log("Reserves updated:", {
+        reserveA: formatUnits(reserves[0], 18),
+        reserveB: formatUnits(reserves[1], 18),
+      });
+    }
+  }, [reserves, isConnected]);
+
+  // Modify your handleAddLiquidity function
+  const handleAddLiquidity = async () => {
+    if (!isConnected || !fromAmount) return;
+
+    try {
+      // Check reserves before
+      console.log("Reserves before adding liquidity:");
+      const reservesBefore = await checkReserves();
+
+      // Your existing add liquidity logic
+      const amountWei = parseUnits(fromAmount, fromTokenBalance.decimals);
+      const tx = await addLiquidityTx({
+        address: SWAP_CONTRACT_ADDRESS,
+        abi: swapAbi,
+        functionName: "addLiquidity",
+        args: [amountWei, amountWei], // Adjust args as needed
+      });
+
+      // Wait for transaction
+      const receipt = await waitForTransaction({ hash: tx.hash });
+
+      // Check reserves after
+      console.log("Reserves after adding liquidity:");
+      const reservesAfter = await checkReserves();
+
+      // Log the difference
+      if (reservesBefore && reservesAfter) {
+        console.log("Reserve changes:", {
+          reserveAChange: formatUnits(reservesAfter[0] - reservesBefore[0], 18),
+          reserveBChange: formatUnits(reservesAfter[1] - reservesBefore[1], 18),
+        });
+      }
+    } catch (err) {
+      console.error("Add liquidity failed:", err);
+    }
+  };
+
+  return (
+    <div className="bg-gray-800 rounded-xl p-4 max-w-md mx-auto mt-8 text-white justify-center">
+      <div className="mb-4">
+        <div className="mb-2 flex justify-between">
+          <span>Sell</span>
+          <span>
+            Balance: {fromTokenBalance ? fromTokenBalance.formatted : "0.00"}
+            <button
+              onClick={() =>
+                fromTokenBalance && setFromAmount(fromTokenBalance.formatted)
+              }
+            ></button>
+          </span>
+        </div>
+        <div className="bg-gray-900 p-3 rounded-xl flex justify-between self-center">
+          <input
+            type="text"
+            value={fromAmount}
+            onChange={handleFromAmountChange}
+            placeholder="0.0"
+            className="bg-transparent outline-none w-2/3"
+            disabled={isProcessing}
+          />
+          <select
+            value={fromToken}
+            onChange={(e) => {
+              const newFromToken = e.target.value;
+              setFromToken(newFromToken);
+              setToToken(
+                newFromToken === TOKEN_A_SYMBOL
+                  ? TOKEN_B_SYMBOL
+                  : TOKEN_A_SYMBOL
+              );
+            }}
+            className="bg-gray-700 rounded-xl p-2"
+            disabled={isProcessing}
+          >
+            <option value={TOKEN_A_SYMBOL}>{TOKEN_A_SYMBOL}</option>
+            <option value={TOKEN_B_SYMBOL}>{TOKEN_B_SYMBOL}</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="flex justify-center my-2">
+        <button
+          onClick={handleSwapTokens}
+          className="bg-gray-700 p-1 rounded-full hover:bg-gray-600"
+          disabled={isProcessing}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
+            />
+          </svg>
+        </button>
+      </div>
+
+      <div className="mb-4">
+        <div className="mb-2">
+          <span>Buy</span>
+        </div>
+        <div className="bg-gray-900 p-3 rounded-xl flex justify-between">
+          <input
+            type="text"
+            value={toAmount}
+            readOnly
+            placeholder="0.0"
+            className="bg-transparent outline-none w-2/3"
+          />
+          <div className="bg-gray-700 rounded-xl p-2">{toToken}</div>
+        </div>
+      </div>
+
+      <div className="mt-4">
+        {needsApproval() ? (
+          <button
+            onClick={handleApprove}
+            disabled={
+              isProcessing ||
+              !isConnected ||
+              !fromAmount ||
+              parseFloat(fromAmount) <= 0
+            }
+            className="w-full py-3 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white transition disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed flex justify-center items-center"
+          ></button>
+        ) : (
+          <button
+            onClick={handleSwap}
+            disabled={
+              isProcessing ||
+              !isConnected ||
+              !fromAmount ||
+              parseFloat(fromAmount) <= 0
+            }
+            className={`w-full py-3 rounded-xl font-bold ${
+              isConnected
+                ? "bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-700 hover:to-green-600"
+                : "bg-gray-900 text-gray-500 cursor-not-allowed"
+            } transition duration-200 ease-in-out`}
+          >
+            {!isConnected ? "Connect Wallet" : "Swap"}
+          </button>
+        )}
+      </div>
+
+      {isProcessing && (
+        <div className="mt-4 text-center text-sm text-yellow-400">
+          Processing Transaction... Check Wallet
+        </div>
+      )}
+
+      {(approveError || swapError) && (
+        <div className="mt-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-center text-red-300 text-xs break-words">
+          Error:{" "}
+          {(approveError || swapError)?.shortMessage || "An error occurred."}
+        </div>
+      )}
+    </div>
+  );
+}

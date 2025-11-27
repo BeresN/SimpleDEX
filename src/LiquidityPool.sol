@@ -9,7 +9,7 @@ contract LiquidityPool is ERC20 {
     using SafeERC20 for IERC20;
     IERC20 public immutable tokenA;
     IERC20 public immutable tokenB;
-    address public immutable exchangeAddress;
+    address public exchangeAddress;
 
     uint256 private reserveA;
     uint256 private reserveB;
@@ -33,10 +33,15 @@ contract LiquidityPool is ERC20 {
         address _exchangeAddress
     ) ERC20("LiquidityPoolToken", "LPT") {
         require(_tokenA != address(0) && _tokenB != address(0), "Zero address");
-        require(_exchangeAddress != address(0), "Zero exchange address");
 
         tokenA = IERC20(_tokenA);
         tokenB = IERC20(_tokenB);
+        exchangeAddress = _exchangeAddress;
+    }
+
+    function setExchangeAddress(address _exchangeAddress) external {
+        require(_exchangeAddress != address(0), "Zero exchange address");
+        require(exchangeAddress == address(0), "Exchange already set");
         exchangeAddress = _exchangeAddress;
     }
 

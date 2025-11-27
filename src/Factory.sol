@@ -39,9 +39,6 @@ contract Factory is Ownable {
 
         require(getPair[token0][token1] == address(0), "PAIR ALREADY EXISTS");
 
-        //passing address to constructor
-        Pair newPair = new Pair(token0, token1);
-        pair = address(newPair);
 
         getPair[token0][token1] = pair;
         getPair[token1][token0] = pair;
