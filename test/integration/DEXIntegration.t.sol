@@ -3,14 +3,14 @@ pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
 import "../../src/Factory.sol";
-import "../../src/Pair.sol";
 import "../../src/Exchange.sol";
 import "../../src/LiquidityPool.sol";
 import "../mocks/MockERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @title DEXIntegration
- * @notice Integration tests for the complete DEX system testing Factory, Pair, Exchange, and LiquidityPool contracts
+ * @notice Integration tests for the complete DEX system testing Factory, LiquidityPool, and Exchange contracts
  */
 contract DEXIntegrationTest is Test {
     Factory public factory;
@@ -26,7 +26,7 @@ contract DEXIntegrationTest is Test {
     uint256 constant INITIAL_MINT = 1000000 * 1e18;
     uint256 constant INITIAL_LIQUIDITY = 10000 * 1e18;
 
-    event PairCreated(address token0, address token1, address pair, uint totalPairs);
+    event PairCreated(address token0, address token1, address pool, address exchange, uint totalPairs);
 
     function setUp() public {
         // Deploy tokens
@@ -58,35 +58,30 @@ contract DEXIntegrationTest is Test {
     function test_Integration_FactoryCreatesPairAndAddLiquidity() public {
         // Create pair through factory
         vm.prank(owner);
-        address pairAddress = factory.CreateNewPair(address(tokenA), address(tokenB));
+        address poolAddress = factory.CreateNewPair(address(tokenA), address(tokenB));
 
-        Pair pair = Pair(pairAddress);
+        LiquidityPool pool = LiquidityPool(poolAddress);
 
-        // Verify pair was created correctly (note: tokens are sorted by address)
+        // Verify pool was created correctly (note: tokens are sorted by address)
         (address token0, address token1) = address(tokenA) < address(tokenB)
             ? (address(tokenA), address(tokenB))
             : (address(tokenB), address(tokenA));
 
-        assertEq(address(pair.tokenA()), token0);
-        assertEq(address(pair.tokenB()), token1);
+        assertEq(address(pool.tokenA()), token0);
+        assertEq(address(pool.tokenB()), token1);
 
-        // Add liquidity to the pair (respecting token ordering)
+        // Add liquidity to the pool
         vm.startPrank(liquidityProvider);
-        tokenA.approve(pairAddress, type(uint256).max);
-        tokenB.approve(pairAddress, type(uint256).max);
+        tokenA.approve(poolAddress, type(uint256).max);
+        tokenB.approve(poolAddress, type(uint256).max);
 
-        uint256 lpMinted;
-        if (token0 == address(tokenA)) {
-            lpMinted = pair.addLiquidity(uint128(INITIAL_LIQUIDITY), uint128(INITIAL_LIQUIDITY));
-        } else {
-            lpMinted = pair.addLiquidity(uint128(INITIAL_LIQUIDITY), uint128(INITIAL_LIQUIDITY));
-        }
+        uint256 lpMinted = pool.addLiquidity(INITIAL_LIQUIDITY, INITIAL_LIQUIDITY);
         vm.stopPrank();
 
         // Verify liquidity was added
         assertGt(lpMinted, 0);
-        assertEq(pair.balanceOf(liquidityProvider), lpMinted);
-        (uint256 reserveA, uint256 reserveB) = pair.getReserves();
+        assertEq(pool.balanceOf(liquidityProvider), lpMinted);
+        (uint256 reserveA, uint256 reserveB) = pool.getReserves();
         assertEq(reserveA, INITIAL_LIQUIDITY);
         assertEq(reserveB, INITIAL_LIQUIDITY);
     }
@@ -94,40 +89,58 @@ contract DEXIntegrationTest is Test {
     function test_Integration_MultiplePairsWithSwaps() public {
         // Create multiple pairs
         vm.startPrank(owner);
-        address pairAB = factory.CreateNewPair(address(tokenA), address(tokenB));
-        address pairBC = factory.CreateNewPair(address(tokenB), address(tokenC));
-        address pairAC = factory.CreateNewPair(address(tokenA), address(tokenC));
+        address poolAB = factory.CreateNewPair(address(tokenA), address(tokenB));
+        address poolBC = factory.CreateNewPair(address(tokenB), address(tokenC));
+        address poolAC = factory.CreateNewPair(address(tokenA), address(tokenC));
         vm.stopPrank();
 
-        // Add liquidity to all pairs
+        // Get exchanges for each pool
+        Exchange exchangeAB = Exchange(factory.getExchange(poolAB));
+        Exchange exchangeBC = Exchange(factory.getExchange(poolBC));
+
+        // Add liquidity to all pools
         vm.startPrank(liquidityProvider);
-        tokenA.approve(pairAB, type(uint256).max);
-        tokenB.approve(pairAB, type(uint256).max);
-        tokenB.approve(pairBC, type(uint256).max);
-        tokenC.approve(pairBC, type(uint256).max);
-        tokenA.approve(pairAC, type(uint256).max);
-        tokenC.approve(pairAC, type(uint256).max);
+        tokenA.approve(poolAB, type(uint256).max);
+        tokenB.approve(poolAB, type(uint256).max);
+        tokenB.approve(poolBC, type(uint256).max);
+        tokenC.approve(poolBC, type(uint256).max);
+        tokenA.approve(poolAC, type(uint256).max);
+        tokenC.approve(poolAC, type(uint256).max);
 
-        Pair(pairAB).addLiquidity(uint128(INITIAL_LIQUIDITY), uint128(INITIAL_LIQUIDITY));
-        Pair(pairBC).addLiquidity(uint128(INITIAL_LIQUIDITY), uint128(INITIAL_LIQUIDITY));
-        Pair(pairAC).addLiquidity(uint128(INITIAL_LIQUIDITY), uint128(INITIAL_LIQUIDITY));
+        LiquidityPool(poolAB).addLiquidity(INITIAL_LIQUIDITY, INITIAL_LIQUIDITY);
+        LiquidityPool(poolBC).addLiquidity(INITIAL_LIQUIDITY, INITIAL_LIQUIDITY);
+        LiquidityPool(poolAC).addLiquidity(INITIAL_LIQUIDITY, INITIAL_LIQUIDITY);
         vm.stopPrank();
 
-        // Perform swap on each pair
-        uint128 swapAmount = 100 * 1e18;
-        uint128 expectedOut = 98910891089108910891; // ~0.989 * 100e18
+        // Setup pool approvals for exchanges to transfer tokens
+        vm.startPrank(poolAB);
+        IERC20(exchangeAB.tokenA()).approve(address(exchangeAB), type(uint256).max);
+        IERC20(exchangeAB.tokenB()).approve(address(exchangeAB), type(uint256).max);
+        vm.stopPrank();
 
-        // Swap A to B
+        vm.startPrank(poolBC);
+        IERC20(exchangeBC.tokenA()).approve(address(exchangeBC), type(uint256).max);
+        IERC20(exchangeBC.tokenB()).approve(address(exchangeBC), type(uint256).max);
+        vm.stopPrank();
+
+        // Perform swaps through exchanges
+        uint256 swapAmount = 100 * 1e18;
+
+        // Swap on exchangeAB - use the exchange's token addresses
         vm.startPrank(trader1);
-        tokenA.transfer(pairAB, swapAmount);
-        Pair(pairAB).swap(0, expectedOut, trader1);
+        IERC20(exchangeAB.tokenA()).approve(address(exchangeAB), type(uint256).max);
+        IERC20(exchangeAB.tokenB()).approve(address(exchangeAB), type(uint256).max);
+        uint256 receivedB = exchangeAB.swapTokenAToB(swapAmount);
         vm.stopPrank();
+        assertGt(receivedB, 0);
 
-        // Swap B to C
+        // Swap on exchangeBC - use the exchange's token addresses
         vm.startPrank(trader2);
-        tokenB.transfer(pairBC, swapAmount);
-        Pair(pairBC).swap(0, expectedOut, trader2);
+        IERC20(exchangeBC.tokenA()).approve(address(exchangeBC), type(uint256).max);
+        IERC20(exchangeBC.tokenB()).approve(address(exchangeBC), type(uint256).max);
+        uint256 receivedC = exchangeBC.swapTokenAToB(swapAmount);
         vm.stopPrank();
+        assertGt(receivedC, 0);
 
         // Verify all pairs are operational
         assertEq(factory.allPairsLength(), 3);
@@ -187,37 +200,42 @@ contract DEXIntegrationTest is Test {
     function test_Integration_CompleteTradeWorkflow() public {
         // 1. Factory creates pair
         vm.prank(owner);
-        address pairAddress = factory.CreateNewPair(address(tokenA), address(tokenB));
-        Pair pair = Pair(pairAddress);
+        address poolAddress = factory.CreateNewPair(address(tokenA), address(tokenB));
+        LiquidityPool pool = LiquidityPool(poolAddress);
+        Exchange exchange = Exchange(factory.getExchange(poolAddress));
 
         // 2. Liquidity provider adds liquidity
         vm.startPrank(liquidityProvider);
-        tokenA.approve(pairAddress, type(uint256).max);
-        tokenB.approve(pairAddress, type(uint256).max);
-        uint256 lpTokens = pair.addLiquidity(uint128(INITIAL_LIQUIDITY), uint128(INITIAL_LIQUIDITY));
+        tokenA.approve(poolAddress, type(uint256).max);
+        tokenB.approve(poolAddress, type(uint256).max);
+        uint256 lpTokens = pool.addLiquidity(INITIAL_LIQUIDITY, INITIAL_LIQUIDITY);
         vm.stopPrank();
 
-        // 3. Perform swaps - just test that trading works
-        address token0 = address(pair.tokenA());
+        // Setup pool approvals for exchange
+        vm.startPrank(poolAddress);
+        IERC20(exchange.tokenA()).approve(address(exchange), type(uint256).max);
+        IERC20(exchange.tokenB()).approve(address(exchange), type(uint256).max);
+        vm.stopPrank();
+
+        // 3. Perform swap through exchange - use exchange's token addresses
         vm.startPrank(trader1);
         uint256 tradeAmount = 100 * 1e18;
-        tokenA.transfer(pairAddress, tradeAmount);
-        if (token0 == address(tokenA)) {
-            pair.swap(0, 98900000000000000000, trader1);
-        } else {
-            pair.swap(98900000000000000000, 0, trader1);
-        }
+        IERC20(exchange.tokenA()).approve(address(exchange), type(uint256).max);
+        IERC20(exchange.tokenB()).approve(address(exchange), type(uint256).max);
+        uint256 received = exchange.swapTokenAToB(tradeAmount);
         vm.stopPrank();
 
-        // 5. Liquidity provider removes liquidity
+        // Verify swap worked
+        assertGt(received, 0);
+        assertLt(received, tradeAmount); // Should receive less due to fees
+
+        // 4. Liquidity provider removes liquidity
         vm.startPrank(liquidityProvider);
-        (uint256 amountA, uint256 amountB) = pair.removeLiquidity(lpTokens);
+        pool.removeLiquidity(lpTokens);
         vm.stopPrank();
 
         // Verify final state
-        assertGt(amountA, 0);
-        assertGt(amountB, 0);
-        assertEq(pair.totalSupply(), 0);
+        assertEq(pool.totalSupply(), 0);
     }
 
     /* Arbitrage test temporarily disabled - requires complex multi-pool setup

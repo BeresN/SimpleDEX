@@ -1,17 +1,20 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./Pair.sol";
+import "./LiquidityPool.sol";
+import "./Exchange.sol";
 
 contract Factory is Ownable {
     mapping(address => mapping(address => address)) public getPair;
+    mapping(address => address) public getExchange; // Maps pool address to exchange address
     //array to store all pairs
     address[] public allTokenPairs;
 
     event PairCreated(
         address token0,
         address token1,
-        address pair,
+        address pool,
+        address exchange,
         uint totalPairs
     );
 
@@ -26,7 +29,7 @@ contract Factory is Ownable {
     function CreateNewPair(
         address tokenA,
         address tokenB
-    ) external onlyOwner returns (address pair) {
+    ) external onlyOwner returns (address pool) {
         require(tokenA != tokenB, "SAME TOKENS!");
         //ensuring right order in array
         (address token0, address token1) = tokenA < tokenB
@@ -39,12 +42,23 @@ contract Factory is Ownable {
 
         require(getPair[token0][token1] == address(0), "PAIR ALREADY EXISTS");
 
+        // Create LiquidityPool with placeholder exchange address
+        LiquidityPool liquidityPool = new LiquidityPool(token0, token1, address(0));
+        pool = address(liquidityPool);
 
-        getPair[token0][token1] = pair;
-        getPair[token1][token0] = pair;
-        allTokenPairs.push(pair);
+        // Create Exchange with the pool
+        Exchange exchange = new Exchange(pool, owner());
 
-        emit PairCreated(token0, token1, pair, allTokenPairs.length);
+        // Set the exchange address in the pool
+        liquidityPool.setExchangeAddress(address(exchange));
+
+        // Store pool and exchange addresses
+        getPair[token0][token1] = pool;
+        getPair[token1][token0] = pool;
+        getExchange[pool] = address(exchange);
+        allTokenPairs.push(pool);
+
+        emit PairCreated(token0, token1, pool, address(exchange), allTokenPairs.length);
     }
 
     function getPairAddress(

@@ -3,7 +3,8 @@ pragma solidity ^0.8.28;
 
 import "forge-std/Test.sol";
 import "../../src/Factory.sol";
-import "../../src/Pair.sol";
+import "../../src/LiquidityPool.sol";
+import "../../src/Exchange.sol";
 import "../mocks/MockERC20.sol";
 
 contract FactoryTest is Test {
@@ -18,7 +19,8 @@ contract FactoryTest is Test {
     event PairCreated(
         address token0,
         address token1,
-        address pair,
+        address pool,
+        address exchange,
         uint totalPairs
     );
 
@@ -96,14 +98,14 @@ contract FactoryTest is Test {
 
         vm.prank(owner);
 
-        // Expect event with ordered tokens (checkData=false to skip pair address check)
+        // Expect event with ordered tokens (checkData=false to skip pool/exchange address check)
         vm.expectEmit(true, true, false, false);
-        emit PairCreated(token0, token1, address(0), 1);
+        emit PairCreated(token0, token1, address(0), address(0), 1);
 
-        address pair = factory.CreateNewPair(address(tokenA), address(tokenB));
+        address pool = factory.CreateNewPair(address(tokenA), address(tokenB));
 
-        // Verify pair was created
-        assertTrue(pair != address(0), "Pair should be created");
+        // Verify pool was created
+        assertTrue(pool != address(0), "Pool should be created");
     }
 
     function test_CreateNewPair_IncrementsPairCount() public {
@@ -307,19 +309,24 @@ contract FactoryTest is Test {
 
     function test_CreatedPair_IsValidContract() public {
         vm.prank(owner);
-        address pairAddress = factory.CreateNewPair(address(tokenA), address(tokenB));
+        address poolAddress = factory.CreateNewPair(address(tokenA), address(tokenB));
 
         // Verify it's a contract
         uint256 size;
         assembly {
-            size := extcodesize(pairAddress)
+            size := extcodesize(poolAddress)
         }
-        assertTrue(size > 0, "Pair should be a contract");
+        assertTrue(size > 0, "Pool should be a contract");
 
-        // Verify it's a Pair contract by calling getReserves
-        Pair pair = Pair(pairAddress);
-        (uint256 reserveA, uint256 reserveB) = pair.getReserves();
+        // Verify it's a LiquidityPool contract by calling getReserves
+        LiquidityPool pool = LiquidityPool(poolAddress);
+        (uint256 reserveA, uint256 reserveB) = pool.getReserves();
         assertEq(reserveA, 0, "Initial reserve A should be 0");
         assertEq(reserveB, 0, "Initial reserve B should be 0");
+
+        // Verify exchange was created and linked
+        address exchangeAddress = factory.getExchange(poolAddress);
+        assertTrue(exchangeAddress != address(0), "Exchange should be created");
+        assertEq(pool.exchangeAddress(), exchangeAddress, "Pool should be linked to exchange");
     }
 }
