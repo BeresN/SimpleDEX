@@ -3,6 +3,9 @@
 import { useState, useEffect } from "react";
 import { useAccount, useReadContract, useBalance } from "wagmi";
 import { formatUnits, erc20Abi } from "viem";
+import { TrendingUp, Loader2, Droplets, Wallet } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import factoryAbi from "../../../abis/factoryAbi.json";
 import liquidityPoolAbi from "../../../abis/liquidityPoolAbi.json";
 import { useRouter } from "next/navigation";
@@ -119,122 +122,130 @@ export default function LiquidityPositions() {
 
   if (!isConnected) {
     return (
-      <div className="bg-gray-800 rounded-2xl p-4 sm:p-5 max-w-4xl mx-auto mt-8 text-white border border-gray-700 shadow-lg">
-        <div className="flex justify-between items-center mb-5">
-          <h2 className="text-xl font-bold">Your Liquidity Positions</h2>
-        </div>
-        <div className="text-center text-gray-400 py-8">
-          Please connect your wallet to view your liquidity positions.
-        </div>
-      </div>
+      <Card className="max-w-4xl mx-auto shadow-2xl border-2 border-border/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" />
+            Your Liquidity Positions
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-12 space-y-3">
+            <Wallet className="h-12 w-12 mx-auto text-muted-foreground/50" />
+            <p className="text-muted-foreground">
+              Please connect your wallet to view your liquidity positions.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="bg-gray-800 rounded-2xl p-4 sm:p-5 max-w-4xl mx-auto mt-8 text-white border border-gray-700 shadow-lg">
-      <div className="flex justify-between items-center mb-5">
-        <h2 className="text-xl font-bold">Your Liquidity Positions</h2>
-      </div>
-
-      {isLoading ? (
-        <div className="text-center py-10">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-500 mb-4"></div>
-          <p className="text-gray-400">Loading your positions...</p>
-        </div>
-      ) : userPools.length > 0 ? (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-700">
-            <thead>
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Pool
-                </th>
-                <th className="px-4 py-3 text-middle text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Your Liquidity
-                </th>
-                <th className="px-4 py-3 text-middle text-xs font-medium text-gray-400 uppercase tracking-wider">
-                  Your Share
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-700">
-              {userPools.map((pool, index) => (
-                <tr key={index} className="hover:bg-gray-700">
-                  <td className="px-4 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-8 w-8 relative">
-                        <div className="absolute left-0 top-0 h-6 w-6 rounded-full bg-blue-500 flex items-center justify-center">
-                          {pool.tokenA.symbol.charAt(0)}
-                        </div>
-                        <div className="absolute right-0 bottom-0 h-6 w-6 rounded-full bg-green-500 flex items-center justify-center">
-                          {pool.tokenB.symbol.charAt(0)}
-                        </div>
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium">
-                          {pool.tokenA.symbol}/{pool.tokenB.symbol}
-                        </div>
-                        <div className="text-xs text-gray-400">
-                          {pool.poolAddress.slice(0, 6)}...
-                          {pool.poolAddress.slice(-4)}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap">
-                    <div className="text-sm">
-                      {formatUnits(
-                        pool.userTokenAAmount,
-                        pool.tokenA.decimals,
-                      ).substring(0, 8)}{" "}
-                      {pool.tokenA.symbol}
-                    </div>
-                    <div className="text-sm">
-                      {formatUnits(
-                        pool.userTokenBAmount,
-                        pool.tokenB.decimals,
-                      ).substring(0, 8)}{" "}
-                      {pool.tokenB.symbol}
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium">
-                      {Number(pool.userShare) / 100}%
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      {formatUnits(pool.lpBalance.value, 18).substring(0, 8)} LP
-                      Tokens
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm"> </td>
+    <Card className="max-w-4xl mx-auto shadow-2xl border-2 border-border/50">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <TrendingUp className="h-5 w-5 text-primary" />
+          Your Liquidity Positions
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="text-center py-12 space-y-3">
+            <Loader2 className="h-12 w-12 mx-auto text-primary animate-spin" />
+            <p className="text-muted-foreground">Loading your positions...</p>
+          </div>
+        ) : userPools.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Pool
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Your Liquidity
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Your Share
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : pairAddressStr &&
-        pairAddressStr !== "0x0000000000000000000000000000000000000000" ? (
-        <div className="text-center py-10 px-4">
-          <div className="text-gray-400 mb-6">
-            <p>
-              You don't have any liquidity positions in the {TOKEN_A_SYMBOL}/
-              {TOKEN_B_SYMBOL} pool yet.
-            </p>
-            <p className="mt-2">Add liquidity to start earning fees!</p>
+              </thead>
+              <tbody>
+                {userPools.map((pool, index) => (
+                  <tr key={index} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-shrink-0 h-10 w-10 relative">
+                          <div className="absolute left-0 top-0 h-7 w-7 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white text-xs font-bold shadow-md">
+                            {pool.tokenA.symbol.charAt(0)}
+                          </div>
+                          <div className="absolute right-0 bottom-0 h-7 w-7 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-primary-foreground text-xs font-bold shadow-md">
+                            {pool.tokenB.symbol.charAt(0)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-sm font-semibold">
+                            {pool.tokenA.symbol}/{pool.tokenB.symbol}
+                          </div>
+                          <div className="text-xs text-muted-foreground font-mono">
+                            {pool.poolAddress.slice(0, 6)}...{pool.poolAddress.slice(-4)}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="space-y-1">
+                        <div className="text-sm font-medium">
+                          {formatUnits(pool.userTokenAAmount, pool.tokenA.decimals).substring(0, 8)}{" "}
+                          <span className="text-muted-foreground">{pool.tokenA.symbol}</span>
+                        </div>
+                        <div className="text-sm font-medium">
+                          {formatUnits(pool.userTokenBAmount, pool.tokenB.decimals).substring(0, 8)}{" "}
+                          <span className="text-muted-foreground">{pool.tokenB.symbol}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <div className="space-y-1">
+                        <Badge variant="secondary" className="font-semibold">
+                          {Number(pool.userShare) / 100}%
+                        </Badge>
+                        <div className="text-xs text-muted-foreground">
+                          {formatUnits(pool.lpBalance.value, 18).substring(0, 8)} LP
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
-      ) : isLoadingPair ? (
-        <div className="text-center py-10">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-emerald-500 mb-4"></div>
-          <p className="text-gray-400">Checking for available pools...</p>
-        </div>
-      ) : (
-        <div className="text-center py-10 px-4">
-          <div className="text-gray-400 mb-6">
-            <p>No liquidity pair exists yet.</p>
+        ) : pairAddressStr &&
+          pairAddressStr !== "0x0000000000000000000000000000000000000000" ? (
+          <div className="text-center py-12 px-4 space-y-4">
+            <Droplets className="h-16 w-16 mx-auto text-muted-foreground/30" />
+            <div className="space-y-2">
+              <p className="text-muted-foreground">
+                You don't have any liquidity positions in the {TOKEN_A_SYMBOL}/{TOKEN_B_SYMBOL} pool yet.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Add liquidity to start earning fees!
+              </p>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        ) : isLoadingPair ? (
+          <div className="text-center py-12 space-y-3">
+            <Loader2 className="h-12 w-12 mx-auto text-primary animate-spin" />
+            <p className="text-muted-foreground">Checking for available pools...</p>
+          </div>
+        ) : (
+          <div className="text-center py-12 px-4 space-y-4">
+            <Droplets className="h-16 w-16 mx-auto text-muted-foreground/30" />
+            <p className="text-muted-foreground">No liquidity pair exists yet.</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

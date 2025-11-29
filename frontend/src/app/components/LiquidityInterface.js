@@ -9,8 +9,13 @@ import {
   useWaitForTransactionReceipt,
 } from "wagmi";
 import { parseUnits, parseEther, erc20Abi, formatUnits } from "viem";
-
+import { Droplets, Plus, Minus, Loader2, TrendingUp, Wallet } from "lucide-react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import "tailwindcss";
 import liquidityPoolAbi from "../../../abis/liquidityPoolAbi.json";
 import factoryAbi from "../../../abis/factoryAbi.json";
@@ -38,35 +43,41 @@ const InputField = ({
   onMaxClick,
   disabled,
 }) => (
-  <div className="bg-gray-900 p-4 rounded-xl mb-2">
-    <div className="flex justify-between items-center mb-2 text-xs text-gray-400">
-      <span>{label}</span>
+  <div className="space-y-2">
+    <div className="flex justify-between items-center text-sm">
+      <span className="text-muted-foreground">{label}</span>
       {balance && (
-        <div className="flex items-center">
-          <span>Balance: {parseFloat(balance.formatted).toFixed(2)}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">
+            Balance: {parseFloat(balance.formatted).toFixed(4)}
+          </span>
           {onMaxClick && (
-            <button
+            <Button
               onClick={onMaxClick}
-              className="ml-1.5 text-emerald-500 hover:text-emerald-400 text-xs font-bold disabled:text-gray-600 disabled:cursor-not-allowed"
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-xs text-primary hover:text-primary/80"
               disabled={disabled || !parseFloat(balance.formatted) > 0}
             >
               MAX
-            </button>
+            </Button>
           )}
         </div>
       )}
     </div>
-    <div className="flex items-center">
-      <input
+    <div className="relative">
+      <Input
         type="text"
         inputMode="decimal"
         value={value}
         onChange={onChange}
-        placeholder={placeholder || "0"}
-        className="w-full bg-transparent text-2xl outline-none placeholder-gray-500 text-gray-100 disabled:opacity-70"
+        placeholder={placeholder || "0.0"}
+        className="pr-20 text-lg h-14 bg-secondary/50"
         disabled={disabled}
       />
-      <span className="text-xl font-medium text-gray-300 ml-2">{symbol}</span>
+      <Badge className="absolute right-3 top-1/2 -translate-y-1/2 px-3 py-1.5">
+        {symbol}
+      </Badge>
     </div>
   </div>
 );
@@ -306,9 +317,9 @@ export default function LiquidityInterface() {
 
   // --- Render Logic ---
   const renderAddLiquidity = () => (
-    <>
+    <div className="space-y-4">
       <InputField
-        label="Amount A"
+        label={`${TOKEN_A_SYMBOL} Amount`}
         value={amountA}
         onChange={handleAmountChange(setAmountA)}
         balance={balanceA}
@@ -317,7 +328,7 @@ export default function LiquidityInterface() {
         disabled={isProcessing || !isConnected}
       />
       <InputField
-        label="Amount B"
+        label={`${TOKEN_B_SYMBOL} Amount`}
         value={amountB}
         onChange={handleAmountChange(setAmountB)}
         balance={balanceB}
@@ -326,8 +337,8 @@ export default function LiquidityInterface() {
         disabled={isProcessing || !isConnected}
       />
 
-      <div className="mt-4 space-y-3">
-        <button
+      <div className="pt-2">
+        <Button
           onClick={handleAddLiquidityWithApprove}
           disabled={
             isProcessing ||
@@ -337,18 +348,28 @@ export default function LiquidityInterface() {
             parseFloat(amountA) <= 0 ||
             parseFloat(amountB) <= 0
           }
-          className="w-full py-3 rounded-xl font-semibold text-lg bg-emerald-600 hover:bg-emerald-700 text-white transition duration-200 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed flex justify-center items-center"
+          className="w-full h-12 text-base font-semibold"
         >
-          {isAddingLiquidity ? <LoadingSpinner /> : "Add Liquidity"}
-        </button>
+          {isAddingLiquidity ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Adding Liquidity...
+            </>
+          ) : (
+            <>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Liquidity
+            </>
+          )}
+        </Button>
       </div>
-    </>
+    </div>
   );
 
   const renderRemoveLiquidity = () => (
-    <>
+    <div className="space-y-4">
       <InputField
-        label="Amount LP Tokens"
+        label="LP Token Amount"
         value={lpAmount}
         onChange={handleAmountChange(setLpAmount)}
         balance={balanceLP}
@@ -361,8 +382,8 @@ export default function LiquidityInterface() {
         disabled={isProcessing || !isConnected}
       />
 
-      <div className="mt-3">
-        <button
+      <div className="pt-2">
+        <Button
           onClick={handleRemoveLiquidity}
           disabled={
             isProcessing ||
@@ -370,96 +391,115 @@ export default function LiquidityInterface() {
             !lpAmount ||
             parseFloat(lpAmount) <= 0
           }
-          className="w-full py-3 rounded-xl font-semibold text-lg bg-red-600 hover:bg-red-700 text-white transition duration-200 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed flex justify-center items-center"
+          variant="destructive"
+          className="w-full h-12 text-base font-semibold"
         >
-          {isRemovingLiquidity ? <LoadingSpinner /> : "Remove Liquidity"}
-        </button>
+          {isRemovingLiquidity ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Removing Liquidity...
+            </>
+          ) : (
+            <>
+              <Minus className="mr-2 h-4 w-4" />
+              Remove Liquidity
+            </>
+          )}
+        </Button>
       </div>
-    </>
+    </div>
   );
 
   return (
-    <div className="bg-gray-800 rounded-2xl p-4 sm:p-5 max-w-md mx-auto mt-8 text-white border border-gray-700 shadow-lg">
-      <div className="flex justify-between items-center mb-5">
-        <div className="flex flex-col space-y-2">
-          <button
-            onClick={() => setViewMode("add")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium ${
-              viewMode === "add"
-                ? "bg-emerald-600 text-white"
-                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-            }`}
-            disabled={isProcessing}
-          >
-            Add Liquidity
-          </button>
-          <button
-            onClick={() => setViewMode("remove")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium ${
-              viewMode === "remove"
-                ? "bg-red-600 text-white"
-                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-            }`}
-            disabled={isProcessing}
-          >
-            Remove Liquidity
-          </button>
+    <Card className="max-w-md mx-auto shadow-2xl border-2 border-border/50">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Droplets className="h-5 w-5 text-primary" />
+            Liquidity Pool
+          </CardTitle>
+          <ConnectButton
+            showBalance={false}
+            chainStatus="icon"
+            accountStatus="address"
+          />
         </div>
+      </CardHeader>
+      <CardContent>
+        {!isConnected ? (
+          <div className="text-center py-12 space-y-3">
+            <Wallet className="h-12 w-12 mx-auto text-muted-foreground/50" />
+            <p className="text-muted-foreground">
+              Please connect your wallet to manage liquidity.
+            </p>
+          </div>
+        ) : (
+          <Tabs value={viewMode} onValueChange={setViewMode} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="add" disabled={isProcessing}>
+                <Plus className="h-4 w-4 mr-1" />
+                Add
+              </TabsTrigger>
+              <TabsTrigger value="remove" disabled={isProcessing}>
+                <Minus className="h-4 w-4 mr-1" />
+                Remove
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="add" className="space-y-4">
+              {renderAddLiquidity()}
+            </TabsContent>
+            <TabsContent value="remove" className="space-y-4">
+              {renderRemoveLiquidity()}
+            </TabsContent>
+          </Tabs>
+        )}
 
-        <ConnectButton
-          showBalance={false}
-          chainStatus="icon"
-          accountStatus="address"
-        />
-      </div>
+        {/* Processing Status */}
+        {isProcessing && (
+          <div className="mt-4 flex items-center justify-center gap-2 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+            <Loader2 className="h-4 w-4 animate-spin text-yellow-500" />
+            <span className="text-sm text-yellow-600 dark:text-yellow-400">
+              Processing transaction...
+            </span>
+          </div>
+        )}
 
-      {!isConnected ? (
-        <div className="text-center text-gray-400 py-8">
-          Please connect your wallet.
-        </div>
-      ) : viewMode === "add" ? (
-        renderAddLiquidity()
-      ) : (
-        renderRemoveLiquidity()
-      )}
+        {/* Transaction Feedback */}
+        {addLiqData && (
+          <TxFeedback hash={addLiqData.hash} successMessage="Liquidity Added!" />
+        )}
+        {remLiqData && (
+          <TxFeedback
+            hash={remLiqData.hash}
+            successMessage="Liquidity Removed!"
+          />
+        )}
+        {approveAData && isSuccessApproveA && (
+          <TxFeedback
+            hash={approveAData.hash}
+            successMessage={`${TOKEN_A_SYMBOL} Approved!`}
+            pending
+          />
+        )}
+        {approveBData && isSuccessApproveB && (
+          <TxFeedback
+            hash={approveBData.hash}
+            successMessage={`${TOKEN_B_SYMBOL} Approved!`}
+            pending
+          />
+        )}
 
-      {isProcessing && (
-        <div className="mt-4 text-center text-sm text-yellow-400">
-          Processing Transaction... Check Wallet
-        </div>
-      )}
-      {addLiqData && (
-        <TxFeedback hash={addLiqData.hash} successMessage="Liquidity Added!" />
-      )}
-      {remLiqData && (
-        <TxFeedback
-          hash={remLiqData.hash}
-          successMessage="Liquidity Removed!"
-        />
-      )}
-      {approveAData && isSuccessApproveA && (
-        <TxFeedback
-          hash={approveAData.hash}
-          successMessage={`${TOKEN_A_SYMBOL} Approved!`}
-          pending
-        />
-      )}
-      {approveBData && isSuccessApproveB && (
-        <TxFeedback
-          hash={approveBData.hash}
-          successMessage={`${TOKEN_B_SYMBOL} Approved!`}
-          pending
-        />
-      )}
-
-      {(approveAError || approveBError || addLiqError || remLiqError) && (
-        <div className="mt-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-center text-red-300 text-xs break-words">
-          Error:{" "}
-          {(approveAError || approveBError || addLiqError || remLiqError)
-            ?.shortMessage || "An error occurred."}
-        </div>
-      )}
-    </div>
+        {/* Error Display */}
+        {(approveAError || approveBError || addLiqError || remLiqError) && (
+          <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+            <p className="text-sm text-destructive text-center break-words">
+              {(approveAError || approveBError || addLiqError || remLiqError)
+                ?.shortMessage || "An error occurred."}
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -475,31 +515,32 @@ const TxFeedback = ({ hash, successMessage, pending = false }) => {
 
   return (
     <div
-      className={`mt-4 p-2 border rounded-lg text-center text-xs sm:text-sm break-all ${
+      className={`mt-4 p-3 border rounded-lg text-center text-sm ${
         isSuccess
-          ? "bg-green-900/50 border-green-700/50 text-green-300"
+          ? "bg-primary/10 border-primary/20"
           : isLoading || pending
-            ? "bg-yellow-900/50 border-yellow-700/50 text-yellow-300"
-            : "bg-gray-700 border-gray-600 text-gray-300" // Default or pending state
+            ? "bg-yellow-500/10 border-yellow-500/20"
+            : "bg-muted border-muted-foreground/20"
       }`}
     >
-      {isSuccess
-        ? successMessage
-        : isLoading || pending
-          ? "Transaction Pending..."
-          : "Transaction Initiated"}{" "}
-      <br />
+      <div className="flex items-center justify-center gap-2 mb-1">
+        {isLoading && <Loader2 className="h-4 w-4 animate-spin text-yellow-500" />}
+        <span className={isSuccess ? "text-primary" : isLoading || pending ? "text-yellow-600 dark:text-yellow-400" : "text-muted-foreground"}>
+          {isSuccess
+            ? successMessage
+            : isLoading || pending
+              ? "Transaction Pending..."
+              : "Transaction Initiated"}
+        </span>
+      </div>
       <a
         href={`https://sepolia.etherscan.io/tx/${hash}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="underline hover:text-white font-mono"
-      ></a>
-      {isLoading && (
-        <span className="ml-2">
-          <LoadingSpinner />
-        </span>
-      )}
+        className="text-xs text-primary hover:text-primary/80 underline font-mono break-all"
+      >
+        View on Etherscan
+      </a>
     </div>
   );
 };

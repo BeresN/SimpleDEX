@@ -1,15 +1,16 @@
+"use client";
+
 import Navbar from "../components/Navbar";
 import SwapInterface from "../components/SwapInterface";
 import "../style.css";
 
+export const dynamic = 'force-dynamic';
+
 export default function Swap() {
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="min-h-screen">
       <Navbar />
-      <main className="container mx-auto py-8 px-4">
-        <h1 className="text-3xl font-bold text-center text-white mb-8">
-          Swap tokens
-        </h1>
+      <main className="container mx-auto py-12 px-4">
         <SwapInterface />
       </main>
     </div>

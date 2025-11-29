@@ -1,17 +1,18 @@
 // pages/pool.js
+"use client";
+
 import Navbar from "../components/Navbar";
 import LiquidityInterface from "../components/LiquidityInterface";
 import LiquidityPositions from "../components/LiquidityPositions";
 import "../style.css";
 
+export const dynamic = 'force-dynamic';
+
 export default function Pool() {
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="min-h-screen">
       <Navbar />
-      <main className="container mx-auto py-8 px-4">
-        <h1 className="text-3xl font-bold text-center text-white mb-8">
-          Liquidity Pool
-        </h1>
+      <main className="container mx-auto py-12 px-4 space-y-8">
         <LiquidityInterface />
         <LiquidityPositions />
       </main>

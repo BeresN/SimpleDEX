@@ -10,6 +10,12 @@ import {
 } from "wagmi";
 import { parseUnits, formatUnits } from "viem";
 import { erc20Abi } from "viem";
+import { ArrowDownUp, Loader2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import TokenSelector from "@/components/TokenSelector";
 import "tailwindcss";
 import swapAbi from "../../../abis/swapAbi.json";
 
@@ -238,131 +244,169 @@ export default function SwapInterface() {
   };
 
   return (
-    <div className="bg-gray-800 rounded-xl p-4 max-w-md mx-auto mt-8 text-white justify-center">
-      <div className="mb-4">
-        <div className="mb-2 flex justify-between">
-          <span>Sell</span>
-          <span>
-            Balance: {fromTokenBalance ? fromTokenBalance.formatted : "0.00"}
+    <Card className="max-w-md mx-auto shadow-2xl border-2 border-border/50">
+      <CardHeader>
+        <CardTitle className="text-center flex items-center justify-center gap-2">
+          <ArrowDownUp className="h-5 w-5 text-primary" />
+          Swap Tokens
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* From Token Section */}
+        <div className="space-y-2">
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-muted-foreground">You sell</span>
             <button
               onClick={() =>
                 fromTokenBalance && setFromAmount(fromTokenBalance.formatted)
               }
-            ></button>
-          </span>
-        </div>
-        <div className="bg-gray-900 p-3 rounded-xl flex justify-between self-center">
-          <input
-            type="text"
-            value={fromAmount}
-            onChange={handleFromAmountChange}
-            placeholder="0.0"
-            className="bg-transparent outline-none w-2/3"
-            disabled={isProcessing}
-          />
-          <select
-            value={fromToken}
-            onChange={(e) => {
-              const newFromToken = e.target.value;
-              setFromToken(newFromToken);
-              setToToken(
-                newFromToken === TOKEN_A_SYMBOL
-                  ? TOKEN_B_SYMBOL
-                  : TOKEN_A_SYMBOL
-              );
-            }}
-            className="bg-gray-700 rounded-xl p-2"
-            disabled={isProcessing}
-          >
-            <option value={TOKEN_A_SYMBOL}>{TOKEN_A_SYMBOL}</option>
-            <option value={TOKEN_B_SYMBOL}>{TOKEN_B_SYMBOL}</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="flex justify-center my-2">
-        <button
-          onClick={handleSwapTokens}
-          className="bg-gray-700 p-1 rounded-full hover:bg-gray-600"
-          disabled={isProcessing}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-6 w-6"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
+              className="text-xs text-primary hover:text-primary/80 transition-colors"
+              disabled={isProcessing}
+            >
+              Balance: {fromTokenBalance ? parseFloat(fromTokenBalance.formatted).toFixed(4) : "0.00"}
+            </button>
+          </div>
+          <div className="relative">
+            <Input
+              type="text"
+              value={fromAmount}
+              onChange={handleFromAmountChange}
+              placeholder="0.0"
+              className="pr-24 text-lg h-14 bg-secondary/50"
+              disabled={isProcessing}
             />
-          </svg>
-        </button>
-      </div>
-
-      <div className="mb-4">
-        <div className="mb-2">
-          <span>Buy</span>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <TokenSelector
+                value={fromToken}
+                onChange={(newFromToken) => {
+                  setFromToken(newFromToken);
+                  setToToken(
+                    newFromToken === TOKEN_A_SYMBOL
+                      ? TOKEN_B_SYMBOL
+                      : TOKEN_A_SYMBOL
+                  );
+                }}
+                disabled={isProcessing}
+              />
+            </div>
+          </div>
         </div>
-        <div className="bg-gray-900 p-3 rounded-xl flex justify-between">
-          <input
-            type="text"
-            value={toAmount}
-            readOnly
-            placeholder="0.0"
-            className="bg-transparent outline-none w-2/3"
-          />
-          <div className="bg-gray-700 rounded-xl p-2">{toToken}</div>
-        </div>
-      </div>
 
-      <div className="mt-4">
-        {needsApproval() ? (
-          <button
-            onClick={handleApprove}
-            disabled={
-              isProcessing ||
-              !isConnected ||
-              !fromAmount ||
-              parseFloat(fromAmount) <= 0
-            }
-            className="w-full py-3 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white transition disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed flex justify-center items-center"
-          ></button>
-        ) : (
-          <button
-            onClick={handleSwap}
-            disabled={
-              isProcessing ||
-              !isConnected ||
-              !fromAmount ||
-              parseFloat(fromAmount) <= 0
-            }
-            className={`w-full py-3 rounded-xl font-bold ${
-              isConnected
-                ? "bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-700 hover:to-green-600"
-                : "bg-gray-900 text-gray-500 cursor-not-allowed"
-            } transition duration-200 ease-in-out`}
+        {/* Swap Direction Button */}
+        <div className="flex justify-center -my-2">
+          <Button
+            onClick={handleSwapTokens}
+            variant="outline"
+            size="icon"
+            className="rounded-full h-10 w-10 border-4 border-background shadow-lg hover:rotate-180 transition-all duration-300"
+            disabled={isProcessing}
           >
-            {!isConnected ? "Connect Wallet" : "Swap"}
-          </button>
+            <ArrowDownUp className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* To Token Section */}
+        <div className="space-y-2">
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-muted-foreground">You receive</span>
+          </div>
+          <div className="relative">
+            <Input
+              type="text"
+              value={toAmount}
+              readOnly
+              placeholder="0.0"
+              className="pr-24 text-lg h-14 bg-secondary/50"
+            />
+            <Badge className="absolute right-3 top-1/2 -translate-y-1/2 px-3 py-1.5">
+              {toToken}
+            </Badge>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="pt-2">
+          {needsApproval() ? (
+            <Button
+              onClick={handleApprove}
+              disabled={
+                isProcessing ||
+                !isConnected ||
+                !fromAmount ||
+                parseFloat(fromAmount) <= 0
+              }
+              className="w-full h-12 text-base font-semibold"
+              variant="secondary"
+            >
+              {isApproving || isConfirmingApprove ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Approving...
+                </>
+              ) : (
+                `Approve ${fromToken}`
+              )}
+            </Button>
+          ) : (
+            <Button
+              onClick={handleSwap}
+              disabled={
+                isProcessing ||
+                !isConnected ||
+                !fromAmount ||
+                parseFloat(fromAmount) <= 0
+              }
+              className="w-full h-12 text-base font-semibold"
+            >
+              {isSwapping || isConfirmingSwap ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Swapping...
+                </>
+              ) : !isConnected ? (
+                "Connect Wallet"
+              ) : (
+                "Swap"
+              )}
+            </Button>
+          )}
+        </div>
+
+        {/* Processing Status */}
+        {isProcessing && (
+          <div className="flex items-center justify-center gap-2 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+            <Loader2 className="h-4 w-4 animate-spin text-yellow-500" />
+            <span className="text-sm text-yellow-600 dark:text-yellow-400">
+              Processing transaction...
+            </span>
+          </div>
         )}
-      </div>
 
-      {isProcessing && (
-        <div className="mt-4 text-center text-sm text-yellow-400">
-          Processing Transaction... Check Wallet
-        </div>
-      )}
+        {/* Error Display */}
+        {(approveError || swapError) && (
+          <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+            <p className="text-sm text-destructive text-center break-words">
+              {(approveError || swapError)?.shortMessage || "An error occurred."}
+            </p>
+          </div>
+        )}
 
-      {(approveError || swapError) && (
-        <div className="mt-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-center text-red-300 text-xs break-words">
-          Error:{" "}
-          {(approveError || swapError)?.shortMessage || "An error occurred."}
-        </div>
-      )}
-    </div>
+        {/* Success Messages */}
+        {isSuccessApprove && (
+          <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
+            <p className="text-sm text-primary text-center">
+              Approval successful! You can now swap.
+            </p>
+          </div>
+        )}
+        {isSuccessSwap && (
+          <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
+            <p className="text-sm text-primary text-center">
+              Swap successful!
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

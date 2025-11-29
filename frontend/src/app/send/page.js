@@ -1,6 +1,10 @@
+"use client";
+
 import Navbar from "../components/Navbar";
 import SendInterface from "../components/SendInterface";
 import "../style.css";
+
+export const dynamic = 'force-dynamic';
 
 export default function Send() {
   return (

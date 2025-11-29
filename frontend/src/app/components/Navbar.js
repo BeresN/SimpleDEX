@@ -3,57 +3,117 @@
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import Link from 'next/link';
 import { useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { Menu, X, Home, Droplets, ArrowLeftRight, Send } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import "tailwindcss";
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const pathname = usePathname();
+
+  const navItems = [
+    { href: '/', label: 'Home', icon: Home },
+    { href: '/pool', label: 'Pool', icon: Droplets },
+    { href: '/swap', label: 'Swap', icon: ArrowLeftRight },
+    { href: '/send', label: 'Send', icon: Send },
+  ];
+
+  const isActive = (path) => pathname === path;
 
   return (
-    <nav className="flex flex-col sm:flex-row justify-between p-4 bg-gray-900 text-white">
-      <div className="flex justify-between items-center w-full">
-        <div className="text-xl font-bold">mySimpleDEX</div>
-        <button 
-          className="sm:hidden text-white focus:outline-none z-50"
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
-        >
-          <svg 
-            className="w-6 h-6" 
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24" 
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            {isMenuOpen ? (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            )}
-          </svg>
-        </button>
-      </div>
+    <nav className="sticky top-0 z-50 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2 group">
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
+              <Droplets className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <span className="text-xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              SimpleDEX
+            </span>
+          </Link>
 
-      {/* Navigation Links - Hidden on mobile when menu is closed */}
-      <div 
-        className={`${
-          isMenuOpen ? 'block' : 'hidden'
-        } sm:block w-full sm:w-auto mt-2 sm:mt-0`}
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
-          <div className="flex flex-col sm:flex-row sm:space-x-4 mb-2 sm:mb-0">
-            <Link href="/" className="hover:text-gray-300 py-1 sm:py-0 text-center">Home</Link>
-            <Link href="/pool" className="hover:text-gray-300 py-1 sm:py-0 text-center">Pool</Link>
-            <Link href="/swap" className="hover:text-gray-300 py-1 sm:py-0 text-center">Swap</Link>
-            <Link href="/send" className="hover:text-gray-300 py-1 sm:py-0 text-center">Send</Link>
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center gap-1">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link key={item.href} href={item.href}>
+                  <Button
+                    variant={isActive(item.href) ? 'secondary' : 'ghost'}
+                    className={cn(
+                      'gap-2',
+                      isActive(item.href) && 'bg-primary/10 text-primary hover:bg-primary/20'
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </Button>
+                </Link>
+              );
+            })}
           </div>
-          <div className="w-full sm:w-auto">
+
+          {/* Desktop Wallet Connection */}
+          <div className="hidden md:block">
             <ConnectButton
               showBalance={true}
               chainStatus="icon"
               accountStatus="address"
-              className="w-full sm:w-auto"
             />
           </div>
+
+          {/* Mobile Menu Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          >
+            {isMenuOpen ? (
+              <X className="h-5 w-5" />
+            ) : (
+              <Menu className="h-5 w-5" />
+            )}
+          </Button>
         </div>
+
+        {/* Mobile Navigation */}
+        {isMenuOpen && (
+          <div className="md:hidden py-4 space-y-3 border-t border-border/40">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <Button
+                    variant={isActive(item.href) ? 'secondary' : 'ghost'}
+                    className={cn(
+                      'w-full justify-start gap-2',
+                      isActive(item.href) && 'bg-primary/10 text-primary hover:bg-primary/20'
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </Button>
+                </Link>
+              );
+            })}
+            <div className="pt-3 border-t border-border/40">
+              <ConnectButton
+                showBalance={true}
+                chainStatus="icon"
+                accountStatus="address"
+              />
+            </div>
+          </div>
+        )}
       </div>
     </nav>
   );
